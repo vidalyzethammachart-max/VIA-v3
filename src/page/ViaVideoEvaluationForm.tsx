@@ -5,7 +5,7 @@ import { getSections, type LikertValue } from "../config/sections";
 import { useLanguage } from "../i18n/LanguageProvider";
 
 const MAX_VIDEO_SIZE_BYTES = 1024 * 1024 * 1024;
-const N8N_WEBHOOK_URL = import.meta.env.VITE_VIDEO_EVALUATION_WEBHOOK_URL || "";
+const API_URL = import.meta.env.VITE_UPLOAD_VIDEO_API_URL;
 const SCORE_VALUES: LikertValue[] = [1, 2, 3, 4, 5];
 
 type RubricAnswers = Record<string, Record<string, LikertValue | undefined>>;
@@ -67,7 +67,7 @@ export default function ViaVideoEvaluationForm() {
   };
 
   const validateForm = () => {
-    if (!N8N_WEBHOOK_URL) return "ยังไม่ได้ตั้งค่า VITE_VIDEO_EVALUATION_WEBHOOK_URL";
+    if (!API_URL) return "Missing VITE_UPLOAD_VIDEO_API_URL";
     if (!subjectName.trim()) return "กรุณากรอก subject_name";
     if (!orderNumber.trim()) return "กรุณากรอก order_number";
     if (!email.trim()) return "กรุณากรอก email";
@@ -138,7 +138,7 @@ export default function ViaVideoEvaluationForm() {
     setSuccessMessage(null);
 
     try {
-      const response = await fetch(N8N_WEBHOOK_URL, {
+      const response = await fetch(API_URL, {
         method: "POST",
         body: formData,
       });
