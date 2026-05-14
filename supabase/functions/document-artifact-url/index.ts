@@ -22,19 +22,9 @@ type ArtifactRequest = {
 type EvaluationRow = {
   id: number;
   user_id: string | null;
-  google_doc_id: string | null;
   pdf_storage_path: string | null;
   docx_storage_path: string | null;
 };
-
-function buildGoogleUrls(docId: string) {
-  return {
-    previewUrl: `https://docs.google.com/document/d/${docId}/preview`,
-    pdfUrl: `https://docs.google.com/document/d/${docId}/export?format=pdf`,
-    docxUrl: `https://docs.google.com/document/d/${docId}/export?format=docx`,
-    source: "google" as const,
-  };
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -105,7 +95,7 @@ serve(async (req) => {
 
     const { data, error } = await adminSupabase
       .from("evaluations")
-      .select("id, user_id, google_doc_id, pdf_storage_path, docx_storage_path")
+      .select("id, user_id, pdf_storage_path, docx_storage_path")
       .eq("id", evaluationId)
       .maybeSingle();
 
@@ -160,19 +150,6 @@ serve(async (req) => {
         previewUrl: pdfSigned.data?.signedUrl ?? null,
         pdfUrl: pdfSigned.data?.signedUrl ?? null,
         docxUrl: docxSigned.data?.signedUrl ?? null,
-      }), {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      });
-    }
-
-    if (evaluation.google_doc_id) {
-      return new Response(JSON.stringify({
-        ok: true,
-        ...buildGoogleUrls(evaluation.google_doc_id),
       }), {
         status: 200,
         headers: {

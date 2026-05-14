@@ -5,7 +5,9 @@ import MainNavbar from "../components/MainNavbar";
 const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/x-m4v", "video/quicktime", "video/webm"];
 const ACCEPTED_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm", ".m4v"];
-const UPLOAD_VIDEO_API_URL = import.meta.env.VITE_UPLOAD_VIDEO_API_URL || "/api/upload-video";
+const UPLOAD_VIDEO_API_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_UPLOAD_VIDEO_API_URL || "/api/n8n-webhook"
+  : import.meta.env.N8N_WEBHOOK_URL || "/api/upload-video";
 
 type UploadResult = {
   fileName: string;

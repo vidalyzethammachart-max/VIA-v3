@@ -1,4 +1,4 @@
-export const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
+export const MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024;
 export const ALLOWED_EXTENSIONS = new Set([".mp4", ".mov", ".webm", ".m4v"]);
 export const ALLOWED_MIME_TYPES = new Set([
   "video/mp4",
@@ -72,8 +72,14 @@ async function postWebhookWithRetry(webhookUrl, formData) {
 export async function notifyN8n(webhookUrl, { file, video, fields, metadata }) {
   const formData = new FormData();
   formData.append("video", video, file.name);
+  formData.append("evaluation_id", fields.evaluationId || "");
+  formData.append("submission_id", fields.submissionId || "");
   formData.append("subject_name", fields.subjectName || "");
   formData.append("order_number", fields.orderNumber || "");
+  formData.append("email", fields.email || "");
+  formData.append("user_id", fields.userId || "");
+  formData.append("overall_suggestion", fields.overallSuggestion || "");
+  formData.append("rubric", fields.rubric || "");
   formData.append("fileName", metadata.fileName);
   formData.append("safeFileName", metadata.safeFileName);
   formData.append("mimeType", metadata.mimeType);
@@ -107,6 +113,10 @@ export async function processVideoUpload({ file, video, fields = {} }) {
     receivedAt,
     subjectName: fields.subjectName || "",
     orderNumber: fields.orderNumber || "",
+    email: fields.email || "",
+    userId: fields.userId || "",
+    evaluationId: fields.evaluationId || "",
+    submissionId: fields.submissionId || "",
     status: "sent",
   };
 
