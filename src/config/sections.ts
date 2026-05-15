@@ -98,7 +98,7 @@ const SECTION_CONTENT: LocalizedSection[] = [
     description: "ประเมินการใช้แสงเพื่อเน้นเนื้อหา สร้างบรรยากาศ และความชัดเจนของภาพ",
     questions: [
       { id: "q1", th: "มีการปรับแสงให้เหมาะสมกับบริบทเนื้อหา", en: "Adjusts lighting appropriately for the content context." },
-      { id: "q2", th: "มีการการจัดแสงเป็นองค์ประกอบสำคัญเพื่อช่วยเพิ่มความน่าสนใจ", en: "Uses lighting as an important element to increase visual interest." },
+      { id: "q2", th: "มีการจัดแสงเป็นองค์ประกอบสำคัญเพื่อช่วยเพิ่มความน่าสนใจ", en: "Uses lighting as an important element to increase visual interest." },
       { id: "q3", th: "การใช้แสงถ่วงน้ำหนักเพื่อจะช่วยเน้นที่รายละเอียดหรือคุณสมบัติเฉพาะของวัตถุ", en: "Uses lighting emphasis to highlight details or specific features of the subject." },
       { id: "q4", th: "มีการจัดแสงในการถ่ายทำได้อย่างเป็นศิลปะในการสร้างเนื้อหาที่มีคุณภาพและมีความน่าสนใจ", en: "Uses artistic lighting to create high-quality and attractive content." },
       { id: "q5", th: "มีการจัดแสงในการสร้างสภาพแวดล้อมที่เหมาะสมเพื่อการเรียนรู้และการสื่อสารของเนื้อหา", en: "Uses lighting to create an environment suitable for learning and communication." },
@@ -109,7 +109,7 @@ const SECTION_CONTENT: LocalizedSection[] = [
     title: "การใช้เสียง",
     description: "ประเมินคุณภาพ ความสมดุล และความเหมาะสมของเสียงประกอบและเสียงบรรยาย",
     questions: [
-      { id: "q1", th: "มีการปรับระดับเสียง (Audio Level) ในแต่ละส่วนให้ความเสียงสมดุล", en: "Balances audio levels across different parts of the content." },
+      { id: "q1", th: "มีการปรับระดับเสียงในแต่ละส่วนให้ความเสียงสมดุล", en: "Balances audio levels across different parts of the content." },
       { id: "q2", th: "มีการใช้เสียงที่เหมาะสมและมีคุณภาพสามารถช่วยสร้างประสบการณ์ที่เต็มเปี่ยมและน่าติดตาม", en: "Uses suitable, high-quality audio that makes the experience richer and more engaging." },
       { id: "q3", th: "มีสัมผัสเสียงกับภาพตรงกับการกระทำของบุคคลหรือสถานการณ์ที่เกิดขึ้น", en: "Keeps sound aligned with on-screen actions or situations." },
       { id: "q4", th: "มีการใช้เสียงที่เหมาะสมกับเนื้อหา", en: "Uses audio that matches the content." },
@@ -124,8 +124,8 @@ const SECTION_CONTENT: LocalizedSection[] = [
       { id: "q1", th: "มีการออกแบบกราฟิกได้อย่างสร้างสรรค์การเข้าใจถึงแก่นหลักของเรื่อง", en: "Graphic design is creative and captures the core idea of the topic." },
       { id: "q2", th: "เลือกสีเพื่อเน้นข้อมูลที่สำคัญที่เหมาะสม สอดคล้องกับเนื้อหาและบรรยากาศ อารมณ์และความรู้สึกของผู้เรียน", en: "Uses color appropriately to emphasize important information and match the content and mood." },
       { id: "q3", th: "เทคนิคการแสดงผลข้อความบนหน้าจอควรเลือกสไตล์ที่เหมาะสมกับเนื้อหาและกลุ่มเป้าหมาย", en: "On-screen text style is appropriate for the content and target audience." },
-      { id: "q4", th: "การใช้แอนิเมชันและการตัดต่อช่วยในการเน้นจุดสำคัญและทำให้เนื้อหาดูน่าสนใจมากขึ้น", en: "Animation and editing help emphasize key points and make the content more engaging." },
-      { id: "q5", th: "ควรรักษาระดับคุณภาพและสไตล์กราฟิกมีความสม่ำเสมอในทุก ๆ ส่วนเพื่อให้ผู้เรียนรู้สึกเป็นไปตามความคาดหวัง", en: "Maintains consistent graphic quality and style across all parts of the content." },
+      { id: "q4", th: "การใช้แอนิเมชันช่วยในการเน้นจุดสำคัญและทำให้เนื้อหาดูน่าสนใจมากขึ้น", en: "Animation and editing help emphasize key points and make the content more engaging." },
+      { id: "q5", th: "การรักษาระดับคุณภาพและสไตล์กราฟิกมีความสม่ำเสมอในทุก ๆ ส่วนเพื่อให้ผู้เรียนรู้สึกเป็นไปตามความคาดหวัง", en: "Maintains consistent graphic quality and style across all parts of the content." },
     ],
   },
 ];

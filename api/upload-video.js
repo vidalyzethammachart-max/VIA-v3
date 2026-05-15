@@ -17,7 +17,7 @@ async function parseVideoFile(request) {
   }
 
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    return { error: jsonResponse(413, { error: "Video file must be 100MB or smaller." }) };
+    return { error: jsonResponse(413, { error: "Video file must be 1GB or smaller." }) };
   }
 
   if (!isAllowedVideo(file.name, file.type)) {
@@ -38,6 +38,12 @@ async function parseVideoFile(request) {
     fields: {
       subjectName: String(formData.get("subject_name") || ""),
       orderNumber: String(formData.get("order_number") || ""),
+      email: String(formData.get("email") || ""),
+      userId: String(formData.get("user_id") || ""),
+      evaluationId: String(formData.get("evaluation_id") || ""),
+      submissionId: String(formData.get("submission_id") || ""),
+      overallSuggestion: String(formData.get("overall_suggestion") || ""),
+      rubric: String(formData.get("rubric") || ""),
     },
   };
 }

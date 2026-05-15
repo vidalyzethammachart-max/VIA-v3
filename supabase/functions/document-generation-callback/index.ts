@@ -100,7 +100,6 @@ serve(async (req) => {
       ? {
           document_status: "failed",
           document_error: payload.error?.trim() || "Document generation failed.",
-          google_doc_id: null,
           source_doc_id: null,
           pdf_storage_path: null,
           docx_storage_path: null,
@@ -108,8 +107,7 @@ serve(async (req) => {
       : {
           document_status: "ready",
           document_error: null,
-          google_doc_id: docId,
-          source_doc_id: sourceDocId,
+          source_doc_id: sourceDocId ?? docId,
           pdf_storage_path: pdfPath,
           docx_storage_path: docxPath,
         };

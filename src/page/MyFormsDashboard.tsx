@@ -5,14 +5,14 @@ import MainNavbar from "../components/MainNavbar";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { supabase } from "../lib/supabaseClient";
 
+const DOCUMENTS_BUCKET = "evaluation-documents";
+
 type EvaluationItem = {
   id: number;
   user_id: string | null;
   order_number: string | null;
   subject_name: string | null;
   overall_suggestion: string | null;
-  google_doc_id: string | null;
-  source_doc_id: string | null;
   pdf_storage_path: string | null;
   docx_storage_path: string | null;
   document_status: "pending" | "ready" | "failed";
@@ -59,7 +59,7 @@ export default function MyFormsDashboard() {
 
       const { data, error } = await supabase
         .from("evaluations")
-        .select("id, user_id, order_number, subject_name, overall_suggestion, google_doc_id, source_doc_id, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
+        .select("id, user_id, order_number, subject_name, overall_suggestion, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -76,31 +76,32 @@ export default function MyFormsDashboard() {
     }
   };
 
-  const handleDownload = async (evaluationId: number, format: "pdf" | "docx") => {
-    const downloadKey = `${evaluationId}:${format}`;
+  const createDocumentSignedUrl = async (path: string) => {
+    const { data, error } = await supabase.storage
+      .from(DOCUMENTS_BUCKET)
+      .createSignedUrl(path, 60 * 60);
+
+    if (error || !data?.signedUrl) {
+      throw new Error(
+        `${error?.message || "Could not prepare document URL."} Bucket: ${DOCUMENTS_BUCKET}. Path: ${path}`,
+      );
+    }
+
+    return data.signedUrl;
+  };
+
+  const handleDownload = async (item: EvaluationItem, format: "pdf" | "docx") => {
+    const downloadKey = `${item.id}:${format}`;
+    const path = format === "pdf" ? item.pdf_storage_path : item.docx_storage_path;
 
     try {
       setActiveDownloadKey(downloadKey);
 
-      const { data, error } = await supabase.functions.invoke<{
-        ok: boolean;
-        pdfUrl: string | null;
-        docxUrl: string | null;
-        error?: string;
-      }>("document-artifact-url", {
-        body: { evaluationId },
-      });
-
-      if (error || !data?.ok) {
-        throw new Error(data?.error || error?.message || t("myForms.prepareDownloadFailed"));
-      }
-
-      const targetUrl = format === "pdf" ? data.pdfUrl : data.docxUrl;
-      if (!targetUrl) {
+      if (!path) {
         throw new Error(t("myForms.noArtifact", { format: format.toUpperCase() }));
       }
 
-      window.open(targetUrl, "_blank", "noopener,noreferrer");
+      window.open(await createDocumentSignedUrl(path), "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error(`Failed to download ${format}:`, error);
       setErrorMessage(error instanceof Error ? error.message : t("myForms.downloadFailed", { format: format.toUpperCase() }));
@@ -121,6 +122,7 @@ export default function MyFormsDashboard() {
       item.subject_name,
       item.order_number,
       item.overall_suggestion,
+      item.user_id,
       item.document_status,
     ]
       .filter(Boolean)
@@ -218,11 +220,9 @@ export default function MyFormsDashboard() {
                     <p className="mt-3 line-clamp-2 text-sm text-slate-600">
                       {item.overall_suggestion?.trim() || t("myForms.noSuggestion")}
                     </p>
-                    {item.document_status === "ready" && (item.pdf_storage_path || item.docx_storage_path || item.google_doc_id) ? (
+                    {item.document_status === "ready" && (item.pdf_storage_path || item.docx_storage_path) ? (
                       <p className="mt-3 break-all text-xs text-slate-400">
-                        {item.pdf_storage_path || item.docx_storage_path
-                          ? t("myForms.storedArtifact", { path: item.pdf_storage_path || item.docx_storage_path || "" })
-                          : t("myForms.generatedReady")}
+                        {t("myForms.storedArtifact", { path: item.pdf_storage_path || item.docx_storage_path || "" })}
                       </p>
                     ) : item.document_status === "failed" ? (
                       <p className="mt-3 text-xs font-medium text-red-600">
@@ -236,7 +236,7 @@ export default function MyFormsDashboard() {
                   </div>
 
                   <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                    {item.document_status === "ready" && (item.pdf_storage_path || item.docx_storage_path || item.google_doc_id) ? (
+                    {item.document_status === "ready" && (item.pdf_storage_path || item.docx_storage_path) ? (
                       <>
                         <Link to={`/preview/${item.id}`} className="btn-primary text-center">
                           {t("common.preview")}
@@ -244,7 +244,7 @@ export default function MyFormsDashboard() {
                         {item.pdf_storage_path && (
                           <button
                             type="button"
-                            onClick={() => void handleDownload(item.id, "pdf")}
+                            onClick={() => void handleDownload(item, "pdf")}
                             disabled={activeDownloadKey === `${item.id}:pdf`}
                             className="btn-secondary text-center"
                           >
@@ -256,7 +256,7 @@ export default function MyFormsDashboard() {
                         {item.docx_storage_path && (
                           <button
                             type="button"
-                            onClick={() => void handleDownload(item.id, "docx")}
+                            onClick={() => void handleDownload(item, "docx")}
                             disabled={activeDownloadKey === `${item.id}:docx`}
                             className="btn-secondary text-center"
                           >
@@ -264,16 +264,6 @@ export default function MyFormsDashboard() {
                               ? t("myForms.preparingDocx")
                               : t("myForms.downloadDocx")}
                           </button>
-                        )}
-                        {item.source_doc_id && (
-                          <a
-                            href={`https://docs.google.com/document/d/${item.source_doc_id}/edit`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn-secondary text-center"
-                          >
-                            {t("myForms.openSourceDoc")}
-                          </a>
                         )}
                       </>
                     ) : item.document_status === "failed" ? (

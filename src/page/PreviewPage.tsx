@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
 import MainNavbar from "../components/MainNavbar";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { supabase } from "../lib/supabaseClient";
 
+const DOCUMENTS_BUCKET = "evaluation-documents";
+
 type PreviewRecord = {
   id: number;
+  user_id: string | null;
+  order_number: string | null;
   subject_name: string | null;
-  google_doc_id: string | null;
-  source_doc_id: string | null;
+  overall_suggestion: string | null;
   pdf_storage_path: string | null;
   docx_storage_path: string | null;
   document_status: "pending" | "ready" | "failed";
@@ -18,7 +21,7 @@ type PreviewRecord = {
 };
 
 type ArtifactUrls = {
-  source: "storage" | "google";
+  source: "storage";
   previewUrl: string | null;
   pdfUrl: string | null;
   docxUrl: string | null;
@@ -35,6 +38,8 @@ export default function PreviewPage() {
   const [artifactUrls, setArtifactUrls] = useState<ArtifactUrls | null>(null);
   const [artifactLoading, setArtifactLoading] = useState(false);
 
+  const hasStorageArtifact = Boolean(record?.pdf_storage_path || record?.docx_storage_path);
+
   useEffect(() => {
     const loadPreview = async () => {
       if (!Number.isInteger(evaluationId) || evaluationId <= 0) {
@@ -45,7 +50,7 @@ export default function PreviewPage() {
 
       const { data, error } = await supabase
         .from("evaluations")
-        .select("id, subject_name, google_doc_id, source_doc_id, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
+        .select("id, user_id, order_number, subject_name, overall_suggestion, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
         .eq("id", evaluationId)
         .maybeSingle();
 
@@ -76,7 +81,7 @@ export default function PreviewPage() {
     const intervalId = window.setInterval(async () => {
       const { data, error } = await supabase
         .from("evaluations")
-        .select("id, subject_name, google_doc_id, source_doc_id, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
+        .select("id, user_id, order_number, subject_name, overall_suggestion, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
         .eq("id", evaluationId)
         .maybeSingle();
 
@@ -92,54 +97,42 @@ export default function PreviewPage() {
 
   useEffect(() => {
     const loadArtifactUrls = async () => {
-      if (!record || record.document_status !== "ready") {
+      if (!record || record.document_status !== "ready" || !hasStorageArtifact) {
         setArtifactUrls(null);
         return;
       }
 
       setArtifactLoading(true);
 
-      const { data, error } = await supabase.functions.invoke<{
-        ok: boolean;
-        source: "storage" | "google";
-        previewUrl: string | null;
-        pdfUrl: string | null;
-        docxUrl: string | null;
-        error?: string;
-      }>("document-artifact-url", {
-        body: { evaluationId: record.id },
-      });
+      const [pdfSigned, docxSigned] = await Promise.all([
+        record.pdf_storage_path
+          ? supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(record.pdf_storage_path, 60 * 60)
+          : Promise.resolve({ data: null, error: null }),
+        record.docx_storage_path
+          ? supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(record.docx_storage_path, 60 * 60)
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
-      if (error || !data?.ok) {
+      if (pdfSigned.error || docxSigned.error) {
         setArtifactUrls(null);
-        setErrorMessage(data?.error || error?.message || t("preview.resolveFailed"));
+        setErrorMessage(
+          `${pdfSigned.error?.message || docxSigned.error?.message || t("preview.resolveFailed")} Bucket: ${DOCUMENTS_BUCKET}. Path: ${record.pdf_storage_path || record.docx_storage_path || "-"}`,
+        );
         setArtifactLoading(false);
         return;
       }
 
       setArtifactUrls({
-        source: data.source,
-        previewUrl: data.previewUrl,
-        pdfUrl: data.pdfUrl,
-        docxUrl: data.docxUrl,
+        source: "storage",
+        previewUrl: pdfSigned.data?.signedUrl ?? null,
+        pdfUrl: pdfSigned.data?.signedUrl ?? null,
+        docxUrl: docxSigned.data?.signedUrl ?? null,
       });
       setArtifactLoading(false);
     };
 
     void loadArtifactUrls();
-  }, [record, t]);
-
-  const fallbackGoogleUrls = useMemo(() => {
-    if (!record?.google_doc_id) {
-      return null;
-    }
-
-    return {
-      preview: `https://docs.google.com/document/d/${record.google_doc_id}/preview`,
-      docx: `https://docs.google.com/document/d/${record.google_doc_id}/export?format=docx`,
-      pdf: `https://docs.google.com/document/d/${record.google_doc_id}/export?format=pdf`,
-    };
-  }, [record?.google_doc_id]);
+  }, [hasStorageArtifact, record, t]);
 
   if (!docId) {
     return <Navigate to="/my-forms" replace />;
@@ -164,9 +157,9 @@ export default function PreviewPage() {
                   {t("preview.generatedSuccess")}
                 </p>
               )}
-              {artifactUrls?.source === "storage" && (
+              {record?.user_id && (
                 <p className="mt-2 text-sm font-medium text-slate-500">
-                  {t("preview.storageSource")}
+                  User ID: {record.user_id}
                 </p>
               )}
             </div>
@@ -218,10 +211,15 @@ export default function PreviewPage() {
               {record.document_error || t("preview.generatorNoDoc")}
             </p>
           </section>
-        ) : record?.document_status !== "ready" || artifactLoading ? (
+        ) : record?.document_status !== "ready" || artifactLoading || !hasStorageArtifact ? (
           <section className="rounded-2xl border border-amber-200 bg-amber-50 p-8 shadow-sm">
             <h3 className="text-base font-semibold text-amber-900">{t("preview.processingTitle")}</h3>
             <p className="mt-2 text-sm text-amber-800">{t("preview.processingDesc")}</p>
+            {record?.document_status === "ready" && !hasStorageArtifact && (
+              <p className="mt-3 text-xs text-amber-700">
+                Document status is ready, but pdf_storage_path and docx_storage_path are still empty.
+              </p>
+            )}
           </section>
         ) : artifactUrls?.previewUrl ? (
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -231,17 +229,34 @@ export default function PreviewPage() {
               className="h-[800px] w-full"
             />
           </section>
-        ) : fallbackGoogleUrls ? (
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <iframe
-              title="Google document preview"
-              src={fallbackGoogleUrls.preview}
-              className="h-[800px] w-full"
-            />
-          </section>
         ) : (
-          <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">
-            {t("preview.noArtifact")}
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <dl className="grid gap-4 text-sm md:grid-cols-2">
+              <div>
+                <dt className="font-semibold text-slate-700">Evaluation ID</dt>
+                <dd className="mt-1 text-slate-900">{record?.id}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-700">User ID</dt>
+                <dd className="mt-1 break-all text-slate-900">{record?.user_id || "-"}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-700">Order number</dt>
+                <dd className="mt-1 text-slate-900">{record?.order_number || "-"}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-700">Created at</dt>
+                <dd className="mt-1 text-slate-900">
+                  {record?.created_at ? new Date(record.created_at).toLocaleString() : "-"}
+                </dd>
+              </div>
+              <div className="md:col-span-2">
+                <dt className="font-semibold text-slate-700">Overall suggestion</dt>
+                <dd className="mt-1 whitespace-pre-wrap text-slate-900">
+                  {record?.overall_suggestion || "-"}
+                </dd>
+              </div>
+            </dl>
           </section>
         )}
       </main>

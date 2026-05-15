@@ -50,7 +50,7 @@ function extractDocId(payload: unknown): string | null {
 async function updateEvaluationDocument(
   evaluationId: number | undefined,
   values: {
-    google_doc_id?: string | null;
+    source_doc_id?: string | null;
     document_status: "ready" | "failed";
     document_error?: string | null;
   },
@@ -214,7 +214,7 @@ serve(async (req) => {
     }
 
     await updateEvaluationDocument(payload.evaluation_id, {
-      google_doc_id: docId,
+      source_doc_id: docId,
       document_status: "ready",
       document_error: null,
     });

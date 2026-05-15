@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import ConfirmModal from "../components/ConfirmModal";
@@ -9,17 +9,40 @@ import { useLanguage } from "../i18n/LanguageProvider";
 import { normalizeRole, type AppRole } from "../lib/roles";
 import { supabase } from "../lib/supabaseClient";
 import { roleRequestService } from "../services/roleRequestService";
-import {
-  submitEvaluation,
-  type EvaluationPayload,
-  type Rubric,
-} from "../services/evaluationService";
+import type { EvaluationPayload, Rubric } from "../services/evaluationService";
+
+const MAX_VIDEO_SIZE_BYTES = 1024 * 1024 * 1024;
+const VIDEO_UPLOAD_API_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_UPLOAD_VIDEO_API_URL || "/api/n8n-webhook"
+  : import.meta.env.N8N_WEBHOOK_URL;
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function validateVideoFile(file: File | null) {
+  if (!file) return "กรุณาเลือกไฟล์วิดีโอก่อนส่งแบบประเมิน";
+  if (!file.type.startsWith("video/")) return "ไฟล์ที่อัปโหลดต้องเป็นวิดีโอเท่านั้น";
+  if (file.size > MAX_VIDEO_SIZE_BYTES) return "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 1GB";
+  return null;
+}
+
+function createSubmissionId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function FormSubmit() {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const sections = getSections(language);
   const likertLabels = getLikertLabels(language);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [orderNumber, setOrderNumber] = useState("");
   const [subjectName, setSubjectName] = useState("");
@@ -31,11 +54,13 @@ function FormSubmit() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
+  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<AppRole>("user");
   const [isRequestingRole, setIsRequestingRole] = useState(false);
   const [roleRequestMessage, setRoleRequestMessage] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data: { user } }) => {
@@ -121,6 +146,15 @@ function FormSubmit() {
       return t("form.fillOverallSuggestion");
     }
 
+    if (!VIDEO_UPLOAD_API_URL) {
+      return "Missing N8N_WEBHOOK_URL";
+    }
+
+    const videoError = validateVideoFile(selectedVideoFile);
+    if (videoError) {
+      return videoError;
+    }
+
     return null;
   };
 
@@ -144,12 +178,15 @@ function FormSubmit() {
     setSubjectName("");
     setAnswers({});
     setComment("");
+    setSelectedVideoFile(null);
     setShowValidation(false);
+    if (videoInputRef.current) videoInputRef.current.value = "";
   };
 
   const isOrderNumberInvalid = showValidation && !orderNumber.trim();
   const isSubjectNameInvalid = showValidation && !subjectName.trim();
   const isCommentInvalid = showValidation && !comment.trim();
+  const isVideoInvalid = showValidation && Boolean(validateVideoFile(selectedVideoFile));
 
   useEffect(() => {
     if (!showValidation) {
@@ -157,26 +194,109 @@ function FormSubmit() {
     }
 
     setSubmitErrorMessage(validateForm());
-  }, [authUserId, orderNumber, subjectName, answers, comment, showValidation, language]);
+  }, [
+    authUserId,
+    orderNumber,
+    subjectName,
+    answers,
+    comment,
+    selectedVideoFile,
+    showValidation,
+    language,
+  ]);
+
+  const handleVideoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedVideoFile(file);
+    if (showValidation) {
+      setSubmitErrorMessage(file ? validateVideoFile(file) : validateVideoFile(null));
+    }
+  };
+
+  const uploadVideoEvaluation = async (
+    payload: EvaluationPayload,
+    videoFile: File,
+    submissionId: string,
+    evaluationId: number,
+  ) => {
+    const formData = new FormData();
+    formData.append("video", videoFile);
+    formData.append("evaluation_id", String(evaluationId));
+    formData.append("submission_id", submissionId);
+    formData.append("user_id", payload.user_id);
+    formData.append("subject_name", payload.subject_name);
+    formData.append("order_number", payload.order_number || "");
+    formData.append("email", payload.Email || "");
+    formData.append("overall_suggestion", payload.overall_suggestion || "");
+    formData.append("rubric", JSON.stringify(payload.rubric));
+
+    const response = await fetch(VIDEO_UPLOAD_API_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => "");
+      throw new Error(responseText || "Video upload webhook failed.");
+    }
+
+    return evaluationId;
+  };
+
+  const saveEvaluation = async (payload: EvaluationPayload) => {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error(t("form.sessionNotReady"));
+    }
+
+    const { data, error } = await supabase
+      .from("evaluations")
+      .insert([
+        {
+          user_id: user.id,
+          order_number: payload.order_number ?? null,
+          subject_name: payload.subject_name,
+          overall_suggestion: payload.overall_suggestion ?? null,
+          rubric: payload.rubric,
+          document_status: "pending",
+          document_error: null,
+        },
+      ])
+      .select("id")
+      .single();
+
+    if (error) {
+      throw new Error(error.message || t("form.submitFailed"));
+    }
+
+    return data.id as number;
+  };
 
   const submitForm = async () => {
     setSubmitErrorMessage(null);
+    setSubmitSuccessMessage(null);
 
     setIsSaving(true);
 
     const payload = buildPayload();
-    if (!payload) {
-      setSubmitErrorMessage(t("form.sessionNotReady"));
+    if (!payload || !selectedVideoFile) {
+      setSubmitErrorMessage(!payload ? t("form.sessionNotReady") : validateVideoFile(selectedVideoFile));
       setIsSaving(false);
       return;
     }
 
     try {
-      const result = await submitEvaluation(payload);
+      const submissionId = createSubmissionId();
+      const evaluationId = await saveEvaluation(payload);
+      await uploadVideoEvaluation(payload, selectedVideoFile, submissionId, evaluationId);
       resetForm();
       navigate("/my-forms", {
         replace: true,
-        state: { generated: true, evaluationId: result.id },
+        state: { generated: true, evaluationId, submissionId },
       });
     } catch (error) {
       console.error("Error while saving:", error);
@@ -193,6 +313,7 @@ function FormSubmit() {
     if (validationError) {
       setShowValidation(true);
       setSubmitErrorMessage(validationError);
+      setSubmitSuccessMessage(null);
       return;
     }
 
@@ -380,15 +501,59 @@ function FormSubmit() {
             )}
           </section>
 
+          <section
+            className={`ui-hover-card space-y-3 rounded-2xl bg-white p-4 shadow-sm md:p-6 ${
+              isVideoInvalid
+                ? "border border-red-300 ring-2 ring-red-100"
+                : "border border-slate-200"
+            }`}
+          >
+            <div>
+              <label className="text-sm font-semibold text-slate-800">Video upload</label>
+              <p className="mt-1 text-xs text-slate-500">
+                Required video file, maximum 1GB. Field name sent to n8n: video.
+              </p>
+            </div>
+            <input
+              ref={videoInputRef}
+              type="file"
+              name="video"
+              accept="video/*"
+              required
+              onChange={handleVideoChange}
+              disabled={isSaving}
+              className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90 disabled:opacity-60"
+            />
+            {selectedVideoFile && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                <p className="font-medium text-slate-900">{selectedVideoFile.name}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {selectedVideoFile.type || "video/*"} | {formatBytes(selectedVideoFile.size)}
+                </p>
+              </div>
+            )}
+            {isVideoInvalid && (
+              <p className="text-xs font-medium text-red-600">
+                {validateVideoFile(selectedVideoFile)}
+              </p>
+            )}
+          </section>
+
           <div className="pb-10">
             {submitErrorMessage &&
               !isOrderNumberInvalid &&
               !isSubjectNameInvalid &&
-              !isCommentInvalid && (
+              !isCommentInvalid &&
+              !isVideoInvalid && (
                 <div className="mb-4 w-full rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-center text-sm text-red-600">
                   {submitErrorMessage}
                 </div>
               )}
+            {submitSuccessMessage && (
+              <div className="mb-4 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700">
+                {submitSuccessMessage}
+              </div>
+            )}
             <div className="flex justify-center">
               <button
                 type="submit"
