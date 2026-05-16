@@ -281,8 +281,7 @@ export default function AdminDashboard() {
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-200 px-4 py-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">{t("admin.users")}</h2>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"

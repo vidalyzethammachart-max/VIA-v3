@@ -5,12 +5,7 @@ import ProfileDropdown from "./ProfileDropdown";
 import { useTheme } from "../theme/ThemeProvider";
 import { useLanguage } from "../i18n/LanguageProvider";
 
-type MainNavbarProps = {
-  title?: string;
-  subtitle?: string;
-};
-
-export default function MainNavbar({ title, subtitle }: MainNavbarProps) {
+export default function MainNavbar() {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const isDark = theme === "dark";
@@ -33,27 +28,20 @@ export default function MainNavbar({ title, subtitle }: MainNavbarProps) {
             <img src={Logo} alt="VIA Logo" className="h-8 w-auto rounded-md" />
           </Link>
 
-          <div className="flex flex-col gap-0 leading-none">
-            <span
-              className={`text-xs font-semibold tracking-wide ${
-                isDark ? "text-white" : "text-primary"
-              }`}
-            >
-              {t("navbar.brand")}
-            </span>
+          <div className="flex flex-col gap-0.5 leading-none">
             <h1
               className={`text-base font-semibold leading-tight ${
                 isDark ? "text-slate-100" : "text-slate-900"
               }`}
             >
-              {title ?? t("navbar.title")}
+              {t("navbar.brand")}
             </h1>
             <p
               className={`text-xs leading-tight ${
                 isDark ? "text-slate-400" : "text-slate-500"
               }`}
             >
-              {subtitle ?? t("navbar.subtitle")}
+              {t("navbar.subtitle")}
             </p>
           </div>
 

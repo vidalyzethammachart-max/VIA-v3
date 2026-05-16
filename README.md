@@ -46,7 +46,6 @@ Video Intelligence & Analytics web application for evaluation form submission, r
 - `/form-submit`
 - `/my-forms`
 - `/preview/:docId`
-- `/upload-video`
 - `/profile`
 - `/role-requests`
 - `/admin`
