@@ -72,6 +72,21 @@ async function postWebhookWithRetry(webhookUrl, formData) {
 export async function notifyN8n(webhookUrl, { file, video, fields, metadata }) {
   const formData = new FormData();
   formData.append("video", video, file.name);
+
+  if (fields.payload) {
+    formData.append("payload", fields.payload);
+    const webhookResponse = await postWebhookWithRetry(webhookUrl, formData);
+
+    if (!webhookResponse.ok) {
+      const responseText = await webhookResponse.text().catch(() => "");
+      const error = new Error(responseText || webhookResponse.statusText);
+      error.status = webhookResponse.status;
+      throw error;
+    }
+
+    return;
+  }
+
   formData.append("evaluation_id", fields.evaluationId || "");
   formData.append("submission_id", fields.submissionId || "");
   formData.append("subject_name", fields.subjectName || "");
