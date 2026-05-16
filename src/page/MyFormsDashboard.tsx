@@ -134,12 +134,12 @@ export default function MyFormsDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <MainNavbar title={t("myForms.title")} subtitle={t("myForms.subtitle")} />
+      <MainNavbar />
 
       <main className="mx-auto max-w-6xl px-4 py-6 md:py-8">
         <section className="grid gap-4 md:grid-cols-3">
           <div className="ui-hover-card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-xs font-semibold text-slate-500">
               {t("myForms.totalForms")}
             </p>
             <p className="mt-3 text-4xl font-bold text-slate-900">{items.length}</p>
@@ -147,7 +147,7 @@ export default function MyFormsDashboard() {
           </div>
 
           <div className="ui-hover-card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-xs font-semibold text-slate-500">
               {t("myForms.readyToPreview")}
             </p>
             <p className="mt-3 text-4xl font-bold text-sky-600 dark:text-sky-400">
@@ -157,7 +157,7 @@ export default function MyFormsDashboard() {
           </div>
 
           <div className="ui-hover-card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-xs font-semibold text-slate-500">
               {t("myForms.quickAction")}
             </p>
             <Link to="/form-submit" className="btn-primary mt-3 inline-flex">
@@ -220,19 +220,15 @@ export default function MyFormsDashboard() {
                     <p className="mt-3 line-clamp-2 text-sm text-slate-600">
                       {item.overall_suggestion?.trim() || t("myForms.noSuggestion")}
                     </p>
-                    {item.document_status === "ready" && (item.pdf_storage_path || item.docx_storage_path) ? (
-                      <p className="mt-3 break-all text-xs text-slate-400">
-                        {t("myForms.storedArtifact", { path: item.pdf_storage_path || item.docx_storage_path || "" })}
-                      </p>
-                    ) : item.document_status === "failed" ? (
+                    {item.document_status === "failed" ? (
                       <p className="mt-3 text-xs font-medium text-red-600">
                         {t("myForms.failed", { error: item.document_error || "-" })}
                       </p>
-                    ) : (
+                    ) : item.document_status !== "ready" ? (
                       <p className="mt-3 text-xs font-medium text-amber-600">
                         {t("myForms.pendingPreview")}
                       </p>
-                    )}
+                    ) : null}
                   </div>
 
                   <div className="flex shrink-0 flex-col gap-2 sm:flex-row">

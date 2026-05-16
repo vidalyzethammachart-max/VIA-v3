@@ -12,9 +12,36 @@ import { roleRequestService } from "../services/roleRequestService";
 import type { EvaluationPayload, Rubric } from "../services/evaluationService";
 
 const MAX_VIDEO_SIZE_BYTES = 1024 * 1024 * 1024;
-const VIDEO_UPLOAD_API_URL = import.meta.env.DEV
-  ? import.meta.env.VITE_UPLOAD_VIDEO_API_URL || "/api/n8n-webhook"
-  : import.meta.env.N8N_WEBHOOK_URL;
+const WEBHOOK_URL = "/api/n8n-webhook";
+
+type N8nRubricItem = {
+  key: string;
+  name: string;
+  scores: number[];
+};
+
+type N8nEvaluationPayload = {
+  evaluation_id: number;
+  order_number: string;
+  subjectName: string;
+  email?: string;
+  rubric: N8nRubricItem[];
+  suggestions: string[];
+  overallSuggestionRaw: string;
+  hasVideo: boolean;
+};
+
+const N8N_RUBRIC_SECTIONS: Record<string, { key: string; name: string }> = {
+  "1": { key: "language_and_script", name: "Language & Script" },
+  "2": { key: "camera_angle", name: "Camera Angle" },
+  "3": { key: "composition", name: "Composition" },
+  "4": { key: "narrator", name: "Narrator" },
+  "5": { key: "story_sequence", name: "Story Sequence" },
+  "6": { key: "scene_and_location", name: "Scene & Location" },
+  "7": { key: "lighting", name: "Lighting" },
+  "8": { key: "audio", name: "Audio" },
+  "9": { key: "graphics_and_visuals", name: "Graphics & Visuals" },
+};
 
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -24,9 +51,16 @@ function formatBytes(bytes: number) {
 
 function validateVideoFile(file: File | null) {
   if (!file) return "กรุณาเลือกไฟล์วิดีโอก่อนส่งแบบประเมิน";
-  if (!file.type.startsWith("video/")) return "ไฟล์ที่อัปโหลดต้องเป็นวิดีโอเท่านั้น";
+  const fileName = file.name.toLowerCase();
+  const isSupportedVideo = fileName.endsWith(".mp4") || fileName.endsWith(".m4v");
+  if (!isSupportedVideo) return "รองรับเฉพาะไฟล์ MP4 หรือ M4V";
   if (file.size > MAX_VIDEO_SIZE_BYTES) return "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 1GB";
   return null;
+}
+
+function normalizeScore(value: unknown): number {
+  const n = Math.round(Number(value || 0));
+  return n >= 1 && n <= 5 ? n : 0;
 }
 
 function createSubmissionId() {
@@ -60,6 +94,7 @@ function FormSubmit() {
   const [roleRequestMessage, setRoleRequestMessage] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [submissionMode, setSubmissionMode] = useState<"data_only" | "with_video">("data_only");
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -146,13 +181,11 @@ function FormSubmit() {
       return t("form.fillOverallSuggestion");
     }
 
-    if (!VIDEO_UPLOAD_API_URL) {
-      return "Missing N8N_WEBHOOK_URL";
-    }
-
-    const videoError = validateVideoFile(selectedVideoFile);
-    if (videoError) {
-      return videoError;
+    if (submissionMode === "with_video") {
+      const videoError = validateVideoFile(selectedVideoFile);
+      if (videoError) {
+        return videoError;
+      }
     }
 
     return null;
@@ -179,6 +212,7 @@ function FormSubmit() {
     setAnswers({});
     setComment("");
     setSelectedVideoFile(null);
+    setSubmissionMode("data_only");
     setShowValidation(false);
     if (videoInputRef.current) videoInputRef.current.value = "";
   };
@@ -186,7 +220,10 @@ function FormSubmit() {
   const isOrderNumberInvalid = showValidation && !orderNumber.trim();
   const isSubjectNameInvalid = showValidation && !subjectName.trim();
   const isCommentInvalid = showValidation && !comment.trim();
-  const isVideoInvalid = showValidation && Boolean(validateVideoFile(selectedVideoFile));
+  const isVideoInvalid =
+    showValidation &&
+    submissionMode === "with_video" &&
+    Boolean(validateVideoFile(selectedVideoFile));
 
   useEffect(() => {
     if (!showValidation) {
@@ -200,10 +237,22 @@ function FormSubmit() {
     subjectName,
     answers,
     comment,
+    submissionMode,
     selectedVideoFile,
     showValidation,
     language,
   ]);
+
+  const handleSubmissionModeChange = (mode: "data_only" | "with_video") => {
+    setSubmissionMode(mode);
+    if (mode === "data_only") {
+      setSelectedVideoFile(null);
+      if (videoInputRef.current) videoInputRef.current.value = "";
+    }
+    if (showValidation) {
+      setSubmitErrorMessage(null);
+    }
+  };
 
   const handleVideoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -211,36 +260,6 @@ function FormSubmit() {
     if (showValidation) {
       setSubmitErrorMessage(file ? validateVideoFile(file) : validateVideoFile(null));
     }
-  };
-
-  const uploadVideoEvaluation = async (
-    payload: EvaluationPayload,
-    videoFile: File,
-    submissionId: string,
-    evaluationId: number,
-  ) => {
-    const formData = new FormData();
-    formData.append("video", videoFile);
-    formData.append("evaluation_id", String(evaluationId));
-    formData.append("submission_id", submissionId);
-    formData.append("user_id", payload.user_id);
-    formData.append("subject_name", payload.subject_name);
-    formData.append("order_number", payload.order_number || "");
-    formData.append("email", payload.Email || "");
-    formData.append("overall_suggestion", payload.overall_suggestion || "");
-    formData.append("rubric", JSON.stringify(payload.rubric));
-
-    const response = await fetch(VIDEO_UPLOAD_API_URL, {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const responseText = await response.text().catch(() => "");
-      throw new Error(responseText || "Video upload webhook failed.");
-    }
-
-    return evaluationId;
   };
 
   const saveEvaluation = async (payload: EvaluationPayload) => {
@@ -276,6 +295,83 @@ function FormSubmit() {
     return data.id as number;
   };
 
+  const buildN8nPayload = (
+    payload: EvaluationPayload,
+    evaluationId: number,
+    hasVideo: boolean,
+  ): N8nEvaluationPayload[] => {
+    const overallSuggestionRaw = payload.overall_suggestion?.trim() || "";
+
+    return [
+      {
+        evaluation_id: evaluationId,
+        order_number: payload.order_number || "",
+        subjectName: payload.subject_name,
+        email: payload.Email || undefined,
+        rubric: sections.map((section) => {
+          const rubricMeta = N8N_RUBRIC_SECTIONS[section.id];
+          const sectionAnswers = answers[section.id] ?? {};
+
+          return {
+            key: rubricMeta.key,
+            name: rubricMeta.name,
+            scores: section.questions.map((question) =>
+              normalizeScore(sectionAnswers[question.id]),
+            ),
+          };
+        }),
+        suggestions: overallSuggestionRaw ? [overallSuggestionRaw] : [],
+        overallSuggestionRaw,
+        hasVideo,
+      },
+    ];
+  };
+
+  const readWebhookResponse = async (response: Response) => {
+    const responseText = await response.text().catch(() => "");
+    if (!response.ok) {
+      throw new Error(`Webhook failed: ${response.status} ${responseText}`);
+    }
+
+    if (!responseText) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(responseText);
+    } catch {
+      return responseText;
+    }
+  };
+
+  const sendEvaluationToN8n = async (
+    webhookPayload: N8nEvaluationPayload[],
+    videoFile?: File | null,
+  ) => {
+    if (!videoFile) {
+      const response = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      return readWebhookResponse(response);
+    }
+
+    const formData = new FormData();
+    formData.append("payload", JSON.stringify(webhookPayload));
+    formData.append("video", videoFile);
+
+    const response = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    return readWebhookResponse(response);
+  };
+
   const submitForm = async () => {
     setSubmitErrorMessage(null);
     setSubmitSuccessMessage(null);
@@ -283,16 +379,31 @@ function FormSubmit() {
     setIsSaving(true);
 
     const payload = buildPayload();
-    if (!payload || !selectedVideoFile) {
-      setSubmitErrorMessage(!payload ? t("form.sessionNotReady") : validateVideoFile(selectedVideoFile));
+    if (!payload) {
+      setSubmitErrorMessage(t("form.sessionNotReady"));
       setIsSaving(false);
       return;
     }
 
     try {
       const submissionId = createSubmissionId();
+      const videoFile = submissionMode === "with_video" ? selectedVideoFile : null;
+
+      if (submissionMode === "with_video") {
+        if (!videoFile) {
+          setSubmitErrorMessage(validateVideoFile(videoFile));
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const evaluationId = await saveEvaluation(payload);
-      await uploadVideoEvaluation(payload, selectedVideoFile, submissionId, evaluationId);
+
+      await sendEvaluationToN8n(
+        buildN8nPayload(payload, evaluationId, Boolean(videoFile)),
+        videoFile,
+      );
+
       resetForm();
       navigate("/my-forms", {
         replace: true,
@@ -501,24 +612,85 @@ function FormSubmit() {
             )}
           </section>
 
-          <section
-            className={`ui-hover-card space-y-3 rounded-2xl bg-white p-4 shadow-sm md:p-6 ${
-              isVideoInvalid
-                ? "border border-red-300 ring-2 ring-red-100"
-                : "border border-slate-200"
-            }`}
-          >
+          <section className="ui-hover-card space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
             <div>
-              <label className="text-sm font-semibold text-slate-800">Video upload</label>
+              <h2 className="text-sm font-semibold text-slate-900 md:text-base">
+                {t("form.submissionModeTitle")}
+              </h2>
               <p className="mt-1 text-xs text-slate-500">
-                Required video file, maximum 1GB. Field name sent to n8n: video.
+                {t("form.submissionModeDescription")}
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label
+                className={`cursor-pointer rounded-xl border p-4 motion-safe:transition ${
+                  submissionMode === "data_only"
+                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                    : "border-slate-200 bg-white hover:border-primary/40"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="submission_mode"
+                  value="data_only"
+                  checked={submissionMode === "data_only"}
+                  onChange={() => handleSubmissionModeChange("data_only")}
+                  className="sr-only"
+                />
+                <span className="text-sm font-semibold text-slate-900">
+                  {t("form.submitDataOnly")}
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  {t("form.submitDataOnlyDesc")}
+                </span>
+              </label>
+
+              <label
+                className={`cursor-pointer rounded-xl border p-4 motion-safe:transition ${
+                  submissionMode === "with_video"
+                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                    : "border-slate-200 bg-white hover:border-primary/40"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="submission_mode"
+                  value="with_video"
+                  checked={submissionMode === "with_video"}
+                  onChange={() => handleSubmissionModeChange("with_video")}
+                  className="sr-only"
+                />
+                <span className="text-sm font-semibold text-slate-900">
+                  {t("form.submitWithVideo")}
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  {t("form.submitWithVideoDesc")}
+                </span>
+              </label>
+            </div>
+          </section>
+
+          {submissionMode === "with_video" && (
+            <section
+              className={`ui-hover-card space-y-3 rounded-2xl bg-white p-4 shadow-sm md:p-6 ${
+                isVideoInvalid
+                  ? "border border-red-300 ring-2 ring-red-100"
+                  : "border border-slate-200"
+              }`}
+            >
+            <div>
+              <label className="text-sm font-semibold text-slate-800">
+                {t("form.videoUpload")}
+              </label>
+              <p className="mt-1 text-xs text-slate-500">
+                {t("form.videoUploadDescription")}
               </p>
             </div>
             <input
               ref={videoInputRef}
               type="file"
               name="video"
-              accept="video/*"
+              accept=".mp4,.m4v,video/mp4,video/x-m4v"
               required
               onChange={handleVideoChange}
               disabled={isSaving}
@@ -537,7 +709,8 @@ function FormSubmit() {
                 {validateVideoFile(selectedVideoFile)}
               </p>
             )}
-          </section>
+            </section>
+          )}
 
           <div className="pb-10">
             {submitErrorMessage &&

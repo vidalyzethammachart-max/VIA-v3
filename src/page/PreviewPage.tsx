@@ -140,13 +140,13 @@ export default function PreviewPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <MainNavbar title={t("preview.title")} subtitle={t("preview.subtitle")} />
+      <MainNavbar />
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 md:py-8">
         <section className="ui-hover-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <p className="text-xs font-semibold text-slate-500">
                 {t("preview.documentLabel")}
               </p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900 md:text-xl">
@@ -155,11 +155,6 @@ export default function PreviewPage() {
               {location.state && "generated" in (location.state as Record<string, unknown>) && (
                 <p className="mt-2 text-sm font-medium text-emerald-600">
                   {t("preview.generatedSuccess")}
-                </p>
-              )}
-              {record?.user_id && (
-                <p className="mt-2 text-sm font-medium text-slate-500">
-                  User ID: {record.user_id}
                 </p>
               )}
             </div>

@@ -182,19 +182,6 @@ export default function ProfileDropdown() {
                 }
               />
             </li>
-            <li>
-              <MenuItem
-                label={t("common.uploadVideo")}
-                isDark={isDark}
-                onClick={() => closeAndNavigate("/upload-video")}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 7.5A2.25 2.25 0 016 5.25h9a2.25 2.25 0 012.25 2.25v9A2.25 2.25 0 0115 18.75H6a2.25 2.25 0 01-2.25-2.25v-9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75l3-1.5v7.5l-3-1.5M9.75 14.25v-4.5m0 0L7.875 11.625M9.75 9.75l1.875 1.875" />
-                  </svg>
-                }
-              />
-            </li>
             {canAccessFormSubmit && (
               <li>
                 <MenuItem
