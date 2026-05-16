@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import ConfirmModal from "../components/ConfirmModal";
 import MainNavbar from "../components/MainNavbar";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { supabase } from "../lib/supabaseClient";
@@ -29,6 +30,8 @@ export default function MyFormsDashboard() {
   const [activeDownloadKey, setActiveDownloadKey] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | EvaluationItem["document_status"]>("all");
+  const [deleteTarget, setDeleteTarget] = useState<EvaluationItem | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -110,6 +113,47 @@ export default function MyFormsDashboard() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    try {
+      setDeletingId(deleteTarget.id);
+      setErrorMessage(null);
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("evaluations")
+        .delete()
+        .eq("id", deleteTarget.id)
+        .eq("user_id", user.id)
+        .select("id")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setItems((current) => current.filter((item) => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error("Failed to delete form:", error);
+      setErrorMessage(error instanceof Error ? error.message : t("myForms.deleteFailed"));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const completedPreviewCount = items.filter((item) => item.document_status === "ready").length;
   const filteredItems = items.filter((item) => {
     const matchesStatus = statusFilter === "all" || item.document_status === statusFilter;
@@ -135,6 +179,21 @@ export default function MyFormsDashboard() {
   return (
     <div className="min-h-screen bg-slate-50">
       <MainNavbar />
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title={t("myForms.deleteTitle")}
+        message={t("myForms.deleteMessage", {
+          label: deleteTarget?.subject_name || t("myForms.untitled"),
+        })}
+        variant="danger"
+        onCancel={() => {
+          if (!deletingId) setDeleteTarget(null);
+        }}
+        onConfirm={() => void handleDelete()}
+        confirmLabel={t("myForms.confirmDelete")}
+        cancelLabel={t("common.cancel")}
+        confirmDisabled={Boolean(deletingId)}
+      />
 
       <main className="mx-auto max-w-6xl px-4 py-6 md:py-8">
         <section className="grid gap-4 md:grid-cols-3">
@@ -261,15 +320,43 @@ export default function MyFormsDashboard() {
                               : t("myForms.downloadDocx")}
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(item)}
+                          disabled={deletingId === item.id}
+                          className="btn-danger text-center"
+                        >
+                          {t("myForms.delete")}
+                        </button>
                       </>
                     ) : item.document_status === "failed" ? (
-                      <Link to={`/preview/${item.id}`} className="btn-danger text-center">
-                        {t("myForms.viewError")}
-                      </Link>
+                      <>
+                        <Link to={`/preview/${item.id}`} className="btn-danger text-center">
+                          {t("myForms.viewError")}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(item)}
+                          disabled={deletingId === item.id}
+                          className="btn-danger text-center"
+                        >
+                          {t("myForms.delete")}
+                        </button>
+                      </>
                     ) : (
-                      <Link to={`/preview/${item.id}`} className="btn-secondary text-center">
-                        {t("myForms.trackStatus")}
-                      </Link>
+                      <>
+                        <Link to={`/preview/${item.id}`} className="btn-secondary text-center">
+                          {t("myForms.trackStatus")}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(item)}
+                          disabled={deletingId === item.id}
+                          className="btn-danger text-center"
+                        >
+                          {t("myForms.delete")}
+                        </button>
+                      </>
                     )}
                   </div>
                 </article>

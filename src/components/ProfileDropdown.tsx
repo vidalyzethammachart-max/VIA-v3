@@ -135,6 +135,18 @@ export default function ProfileDropdown() {
           <ul className={`py-1 text-sm ${isDark ? "text-slate-200" : "text-gray-700"}`}>
             <li>
               <MenuItem
+                label={t("common.home")}
+                isDark={isDark}
+                onClick={() => closeAndNavigate("/home")}
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 10.5 12 3l8.25 7.5M5.25 9.75V20.25h4.5v-5.25h4.5v5.25h4.5V9.75" />
+                  </svg>
+                }
+              />
+            </li>
+            <li>
+              <MenuItem
                 label={t("common.profile")}
                 isDark={isDark}
                 onClick={() => closeAndNavigate("/profile")}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useLocation, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
+import ConfirmModal from "../components/ConfirmModal";
 import MainNavbar from "../components/MainNavbar";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { supabase } from "../lib/supabaseClient";
@@ -29,6 +30,7 @@ type ArtifactUrls = {
 
 export default function PreviewPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const { docId } = useParams<{ docId: string }>();
   const evaluationId = Number(docId);
@@ -37,6 +39,8 @@ export default function PreviewPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [artifactUrls, setArtifactUrls] = useState<ArtifactUrls | null>(null);
   const [artifactLoading, setArtifactLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const hasStorageArtifact = Boolean(record?.pdf_storage_path || record?.docx_storage_path);
 
@@ -134,6 +138,47 @@ export default function PreviewPage() {
     void loadArtifactUrls();
   }, [hasStorageArtifact, record, t]);
 
+  const handleDelete = async () => {
+    if (!record) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setErrorMessage(null);
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("evaluations")
+        .delete()
+        .eq("id", record.id)
+        .eq("user_id", user.id)
+        .select("id")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      navigate("/my-forms", { replace: true });
+    } catch (error) {
+      console.error("Failed to delete preview record:", error);
+      setErrorMessage(error instanceof Error ? error.message : t("myForms.deleteFailed"));
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  };
+
   if (!docId) {
     return <Navigate to="/my-forms" replace />;
   }
@@ -141,6 +186,21 @@ export default function PreviewPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <MainNavbar />
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        title={t("myForms.deleteTitle")}
+        message={t("myForms.deleteMessage", {
+          label: record?.subject_name || t("myForms.untitled"),
+        })}
+        variant="danger"
+        onCancel={() => {
+          if (!deleting) setDeleteConfirmOpen(false);
+        }}
+        onConfirm={() => void handleDelete()}
+        confirmLabel={t("myForms.confirmDelete")}
+        cancelLabel={t("common.cancel")}
+        confirmDisabled={deleting}
+      />
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 md:py-8">
         <section className="ui-hover-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
@@ -187,6 +247,16 @@ export default function PreviewPage() {
               <Link to="/my-forms" className="btn-secondary text-center">
                 {t("preview.backToMyForms")}
               </Link>
+              {record && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  disabled={deleting}
+                  className="btn-danger text-center"
+                >
+                  {t("myForms.delete")}
+                </button>
+              )}
             </div>
           </div>
         </section>
