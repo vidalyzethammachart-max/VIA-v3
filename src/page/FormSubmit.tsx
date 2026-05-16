@@ -13,7 +13,7 @@ import type { EvaluationPayload, Rubric } from "../services/evaluationService";
 
 const MAX_VIDEO_SIZE_BYTES = 1024 * 1024 * 1024;
 const WEBHOOK_URL = "/api/n8n-webhook";
-const VIDEO_WEBHOOK_URL = "https://vidalyze.app.n8n.cloud/webhook/google-form-hook";
+const VIDEO_UPLOAD_API_URL = import.meta.env.VITE_UPLOAD_VIDEO_API_URL;
 
 type N8nRubricItem = {
   key: string;
@@ -183,6 +183,10 @@ function FormSubmit() {
     }
 
     if (submissionMode === "with_video") {
+      if (!VIDEO_UPLOAD_API_URL) {
+        return "ยังไม่ได้ตั้งค่า VITE_UPLOAD_VIDEO_API_URL สำหรับอัปโหลดวิดีโอ";
+      }
+
       const videoError = validateVideoFile(selectedVideoFile);
       if (videoError) {
         return videoError;
@@ -366,7 +370,7 @@ function FormSubmit() {
     formData.append("payload", JSON.stringify(webhookPayload));
     formData.append("video", videoFile);
 
-    const response = await fetch(VIDEO_WEBHOOK_URL, {
+    const response = await fetch(VIDEO_UPLOAD_API_URL, {
       method: "POST",
       body: formData,
     });
