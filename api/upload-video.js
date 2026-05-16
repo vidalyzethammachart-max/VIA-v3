@@ -44,6 +44,7 @@ async function parseVideoFile(request) {
       submissionId: String(formData.get("submission_id") || ""),
       overallSuggestion: String(formData.get("overall_suggestion") || ""),
       rubric: String(formData.get("rubric") || ""),
+      payload: String(formData.get("payload") || ""),
     },
   };
 }

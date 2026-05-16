@@ -79,6 +79,7 @@ app.post("/api/upload-video", upload.single("video"), async (req, res) => {
         submissionId: String(req.body?.submission_id || ""),
         overallSuggestion: String(req.body?.overall_suggestion || ""),
         rubric: String(req.body?.rubric || ""),
+        payload: String(req.body?.payload || ""),
       },
     });
 

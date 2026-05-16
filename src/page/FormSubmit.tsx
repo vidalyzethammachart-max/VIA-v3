@@ -13,6 +13,7 @@ import type { EvaluationPayload, Rubric } from "../services/evaluationService";
 
 const MAX_VIDEO_SIZE_BYTES = 1024 * 1024 * 1024;
 const WEBHOOK_URL = "/api/n8n-webhook";
+const VIDEO_WEBHOOK_URL = "https://vidalyze.app.n8n.cloud/webhook/google-form-hook";
 
 type N8nRubricItem = {
   key: string;
@@ -186,6 +187,7 @@ function FormSubmit() {
       if (videoError) {
         return videoError;
       }
+
     }
 
     return null;
@@ -364,7 +366,7 @@ function FormSubmit() {
     formData.append("payload", JSON.stringify(webhookPayload));
     formData.append("video", videoFile);
 
-    const response = await fetch(WEBHOOK_URL, {
+    const response = await fetch(VIDEO_WEBHOOK_URL, {
       method: "POST",
       body: formData,
     });
