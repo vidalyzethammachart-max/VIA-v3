@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./page/Login";
+import Home from "./page/Home";
 import FormSubmit from "./page/FormSubmit";
 import Register from "./page/Register";
 import Profile from "./page/Profile";
@@ -15,14 +16,12 @@ import SessionMonitor from "./components/SessionMonitor";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuthRole } from "./hooks/useAuthRole";
-import { roleAtLeast, type AppRole } from "./lib/roles";
+import type { AppRole } from "./lib/roles";
 import { useLanguage } from "./i18n/LanguageProvider";
 
 function getDefaultRouteForRole(role: AppRole | null): string {
   if (!role) return "/";
-  if (roleAtLeast(role, "admin")) return "/admin";
-  if (roleAtLeast(role, "editor")) return "/form-submit";
-  return "/dashboard";
+  return "/home";
 }
 
 export default function App() {
@@ -50,6 +49,14 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/form-submit"
