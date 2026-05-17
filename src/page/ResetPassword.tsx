@@ -33,6 +33,8 @@ export default function ResetPassword() {
     confirmPassword?: string;
   }>({});
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("checking");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
   const recoveryTimeoutRef = useRef<number | null>(null);
@@ -374,32 +376,48 @@ export default function ResetPassword() {
               <label className="mb-1 block font-medium text-gray-600 dark:text-slate-300">
                 {t("auth.newPassword")}
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (modalError) setModalError("");
-                  if (pageError && recoveryState !== "expired") setPageError("");
-                  if (fieldErrors.password || fieldErrors.confirmPassword) {
-                    setFieldErrors((current) => ({
-                      ...current,
-                      password: undefined,
-                      confirmPassword: current.confirmPassword ? undefined : current.confirmPassword,
-                    }));
-                  }
-                }}
-                disabled={loading || !hasRecoverySession}
-                className={`w-full rounded-lg border bg-white px-4 py-2 text-black focus:outline-none focus:ring-1 dark:bg-slate-950 dark:text-white ${
-                  fieldErrors.password
-                    ? "border-red-400 focus:ring-red-200 dark:border-red-500/60"
-                    : "border-gray-500 focus:ring-[#04418b] dark:border-slate-700"
-                }`}
-                placeholder={t("auth.enterNewPassword")}
-                minLength={MIN_PASSWORD_LENGTH}
-                autoComplete="new-password"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (modalError) setModalError("");
+                    if (pageError && recoveryState !== "expired") setPageError("");
+                    if (fieldErrors.password || fieldErrors.confirmPassword) {
+                      setFieldErrors((current) => ({
+                        ...current,
+                        password: undefined,
+                        confirmPassword: current.confirmPassword ? undefined : current.confirmPassword,
+                      }));
+                    }
+                  }}
+                  disabled={loading || !hasRecoverySession}
+                  className={`w-full rounded-lg border bg-white py-2 pl-4 pr-10 text-black focus:outline-none focus:ring-1 dark:bg-slate-950 dark:text-white ${
+                    fieldErrors.password
+                      ? "border-red-400 focus:ring-red-200 dark:border-red-500/60"
+                      : "border-gray-500 focus:ring-[#04418b] dark:border-slate-700"
+                  }`}
+                  placeholder={t("auth.enterNewPassword")}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  title={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
               {fieldErrors.password && (
                 <p className="mt-2 text-sm text-red-500 dark:text-red-400">{fieldErrors.password}</p>
               )}
@@ -409,31 +427,47 @@ export default function ResetPassword() {
               <label className="mb-1 block font-medium text-gray-600 dark:text-slate-300">
                 {t("auth.confirmPassword")}
               </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  if (modalError) setModalError("");
-                  if (pageError && recoveryState !== "expired") setPageError("");
-                  if (fieldErrors.confirmPassword) {
-                    setFieldErrors((current) => ({
-                      ...current,
-                      confirmPassword: undefined,
-                    }));
-                  }
-                }}
-                disabled={loading || !hasRecoverySession}
-                className={`w-full rounded-lg border bg-white px-4 py-2 text-black focus:outline-none focus:ring-1 dark:bg-slate-950 dark:text-white ${
-                  fieldErrors.confirmPassword
-                    ? "border-red-400 focus:ring-red-200 dark:border-red-500/60"
-                    : "border-gray-500 focus:ring-[#04418b] dark:border-slate-700"
-                }`}
-                placeholder={t("auth.confirmNewPassword")}
-                minLength={MIN_PASSWORD_LENGTH}
-                autoComplete="new-password"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (modalError) setModalError("");
+                    if (pageError && recoveryState !== "expired") setPageError("");
+                    if (fieldErrors.confirmPassword) {
+                      setFieldErrors((current) => ({
+                        ...current,
+                        confirmPassword: undefined,
+                      }));
+                    }
+                  }}
+                  disabled={loading || !hasRecoverySession}
+                  className={`w-full rounded-lg border bg-white py-2 pl-4 pr-10 text-black focus:outline-none focus:ring-1 dark:bg-slate-950 dark:text-white ${
+                    fieldErrors.confirmPassword
+                      ? "border-red-400 focus:ring-red-200 dark:border-red-500/60"
+                      : "border-gray-500 focus:ring-[#04418b] dark:border-slate-700"
+                  }`}
+                  placeholder={t("auth.confirmNewPassword")}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  title={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
               {fieldErrors.confirmPassword && (
                 <p className="mt-2 text-sm text-red-500 dark:text-red-400">
                   {fieldErrors.confirmPassword}

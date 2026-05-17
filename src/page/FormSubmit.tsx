@@ -32,6 +32,11 @@ type N8nEvaluationPayload = {
   hasVideo: boolean;
 };
 
+type SubmissionProgress = {
+  percent: number;
+  label: string;
+};
+
 const N8N_RUBRIC_SECTIONS: Record<string, { key: string; name: string }> = {
   "1": { key: "language_and_script", name: "Language & Script" },
   "2": { key: "camera_angle", name: "Camera Angle" },
@@ -97,6 +102,7 @@ function FormSubmit() {
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submissionMode, setSubmissionMode] = useState<"data_only" | "with_video">("data_only");
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  const [submissionProgress, setSubmissionProgress] = useState<SubmissionProgress | null>(null);
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data: { user } }) => {
@@ -350,9 +356,26 @@ function FormSubmit() {
     }
   };
 
+  const readTextResponse = (status: number, responseText: string) => {
+    if (status < 200 || status >= 300) {
+      throw new Error(`Webhook failed: ${status} ${responseText}`);
+    }
+
+    if (!responseText) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(responseText);
+    } catch {
+      return responseText;
+    }
+  };
+
   const sendEvaluationToN8n = async (
     webhookPayload: N8nEvaluationPayload[],
     videoFile?: File | null,
+    onUploadProgress?: (percent: number) => void,
   ) => {
     if (!videoFile) {
       const response = await fetch(WEBHOOK_URL, {
@@ -370,23 +393,47 @@ function FormSubmit() {
     formData.append("payload", JSON.stringify(webhookPayload));
     formData.append("video", videoFile);
 
-    const response = await fetch(VIDEO_UPLOAD_API_URL, {
-      method: "POST",
-      body: formData,
-    });
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
 
-    return readWebhookResponse(response);
+      xhr.open("POST", VIDEO_UPLOAD_API_URL);
+
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) {
+          return;
+        }
+
+        onUploadProgress?.(Math.round((event.loaded / event.total) * 100));
+      };
+
+      xhr.onload = () => {
+        try {
+          resolve(readTextResponse(xhr.status, xhr.responseText));
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      xhr.onerror = () => reject(new Error(t("form.submitFailed")));
+      xhr.onabort = () => reject(new Error(t("form.submitFailed")));
+      xhr.send(formData);
+    });
   };
 
   const submitForm = async () => {
     setSubmitErrorMessage(null);
     setSubmitSuccessMessage(null);
+    setSubmissionProgress({
+      percent: 5,
+      label: t("form.progressPreparing"),
+    });
 
     setIsSaving(true);
 
     const payload = buildPayload();
     if (!payload) {
       setSubmitErrorMessage(t("form.sessionNotReady"));
+      setSubmissionProgress(null);
       setIsSaving(false);
       return;
     }
@@ -398,17 +445,40 @@ function FormSubmit() {
       if (submissionMode === "with_video") {
         if (!videoFile) {
           setSubmitErrorMessage(validateVideoFile(videoFile));
+          setSubmissionProgress(null);
           setIsSaving(false);
           return;
         }
       }
 
+      setSubmissionProgress({
+        percent: 10,
+        label: t("form.progressSaving"),
+      });
+
       const evaluationId = await saveEvaluation(payload);
+
+      setSubmissionProgress({
+        percent: videoFile ? 20 : 65,
+        label: videoFile ? t("form.progressUploading") : t("form.progressSending"),
+      });
 
       await sendEvaluationToN8n(
         buildN8nPayload(payload, evaluationId, Boolean(videoFile)),
         videoFile,
+        (uploadPercent) => {
+          const mappedPercent = 20 + Math.round(uploadPercent * 0.7);
+          setSubmissionProgress({
+            percent: Math.min(mappedPercent, 90),
+            label: t("form.progressUploading"),
+          });
+        },
       );
+
+      setSubmissionProgress({
+        percent: 95,
+        label: t("form.progressProcessing"),
+      });
 
       resetForm();
       navigate("/my-forms", {
@@ -418,6 +488,7 @@ function FormSubmit() {
     } catch (error) {
       console.error("Error while saving:", error);
       setSubmitErrorMessage(error instanceof Error ? error.message : t("form.submitFailed"));
+      setSubmissionProgress(null);
     } finally {
       setIsSaving(false);
     }
@@ -731,6 +802,29 @@ function FormSubmit() {
             {submitSuccessMessage && (
               <div className="mb-4 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700">
                 {submitSuccessMessage}
+              </div>
+            )}
+            {isSaving && submissionProgress && (
+              <div className="mb-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-slate-800">{submissionProgress.label}</span>
+                  <span className="tabular-nums font-semibold text-primary">
+                    {submissionProgress.percent}%
+                  </span>
+                </div>
+                <div
+                  className="h-3 overflow-hidden rounded-full bg-slate-100"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={submissionProgress.percent}
+                  aria-label={submissionProgress.label}
+                >
+                  <div
+                    className="h-full rounded-full bg-primary motion-safe:transition-all motion-safe:duration-300"
+                    style={{ width: `${submissionProgress.percent}%` }}
+                  />
+                </div>
               </div>
             )}
             <div className="flex justify-center">

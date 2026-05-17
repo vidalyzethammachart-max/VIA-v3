@@ -16,9 +16,25 @@ const upload = multer({
   },
 });
 
+function getAllowedCorsOrigin(requestOrigin) {
+  const allowedOrigins = (process.env.CORS_ORIGIN || "*")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (allowedOrigins.includes("*")) {
+    return "*";
+  }
+
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  return allowedOrigins[0] || "*";
+}
+
 function setCorsHeaders(req, res, next) {
-  const allowedOrigin = process.env.CORS_ORIGIN || "*";
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Access-Control-Allow-Origin", getAllowedCorsOrigin(req.headers.origin));
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   next();
