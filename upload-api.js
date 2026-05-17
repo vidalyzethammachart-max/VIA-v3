@@ -1,3 +1,4 @@
+import "./server/loadEnv.js";
 import axios from "axios";
 import cors from "cors";
 import express from "express";
@@ -10,11 +11,25 @@ const REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 
 const app = express();
 
+function resolveCorsOrigin(origin, callback) {
+  const allowedOrigins = (process.env.CORS_ORIGIN || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+    callback(null, true);
+    return;
+  }
+
+  callback(new Error(`Origin not allowed by CORS: ${origin}`));
+}
+
 // Restrict browser access to the configured frontend origin while still
 // supporting Render health checks and non-browser server-to-server requests.
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: resolveCorsOrigin,
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   }),
