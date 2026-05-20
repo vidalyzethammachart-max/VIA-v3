@@ -2,19 +2,30 @@ import "./server/loadEnv.js";
 import axios from "axios";
 import cors from "cors";
 import express from "express";
+import fs from "node:fs";
+import { unlink } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import FormData from "form-data";
 import multer from "multer";
 
 const PORT = Number(process.env.PORT || 8080);
 const MAX_UPLOAD_SIZE_BYTES = 500 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "https://via3-app.vercel.app",
+];
 
 const app = express();
 
 function resolveCorsOrigin(origin, callback) {
-  const allowedOrigins = (process.env.CORS_ORIGIN || "")
-    .split(",")
-    .map((value) => value.trim())
+  const allowedOrigins = [
+    ...DEFAULT_ALLOWED_ORIGINS,
+    ...(process.env.CORS_ORIGIN || "")
+      .split(",")
+      .map((value) => value.trim()),
+  ]
     .filter(Boolean);
 
   if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
@@ -35,10 +46,15 @@ app.use(
   }),
 );
 
-// Store uploads in memory so the relay can stream the exact incoming file to n8n
-// without relying on Render's ephemeral filesystem.
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, file, callback) => {
+      const extension = path.extname(file.originalname);
+      const safeName = `${Date.now()}-${Math.random().toString(16).slice(2)}${extension}`;
+      callback(null, safeName);
+    },
+  }),
   limits: {
     fileSize: MAX_UPLOAD_SIZE_BYTES,
   },
@@ -49,10 +65,11 @@ app.get("/", (_req, res) => {
 });
 
 app.post("/api/upload-video", upload.single("video"), async (req, res) => {
+  const video = req.file;
+
   try {
     const webhookUrl = process.env.N8N_WEBHOOK_URL;
     const payload = req.body?.payload;
-    const video = req.file;
 
     if (!webhookUrl) {
       res.status(500).json({
@@ -80,7 +97,7 @@ app.post("/api/upload-video", upload.single("video"), async (req, res) => {
 
     const formData = new FormData();
     formData.append("payload", payload);
-    formData.append("video", video.buffer, {
+    formData.append("video", fs.createReadStream(video.path), {
       filename: video.originalname,
       contentType: video.mimetype,
       knownLength: video.size,
@@ -116,6 +133,15 @@ app.post("/api/upload-video", upload.single("video"), async (req, res) => {
       success: false,
       message,
     });
+  } finally {
+    if (video?.path) {
+      void unlink(video.path).catch((cleanupError) => {
+        console.error("[upload-api] failed to remove temp upload", {
+          path: video.path,
+          message: cleanupError.message,
+        });
+      });
+    }
   }
 });
 
