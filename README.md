@@ -59,11 +59,21 @@ VITE_N8N_WEBHOOK_URL=YOUR_N8N_WEBHOOK_URL
 VITE_SUPABASE_URL=YOUR_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 N8N_WEBHOOK_URL=YOUR_N8N_WEBHOOK_URL
+VITE_UPLOAD_VIDEO_API_URL=https://YOUR_UPLOAD_API_URL/api/upload-video
+CORS_ORIGIN=http://localhost:5173,https://YOUR_FRONTEND_DOMAIN
+R2_ACCOUNT_ID=YOUR_CLOUDFLARE_ACCOUNT_ID
+R2_ACCESS_KEY_ID=YOUR_R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY=YOUR_R2_SECRET_ACCESS_KEY
+R2_BUCKET_NAME=YOUR_R2_BUCKET_NAME
 ```
 
-`POST /api/upload-video` accepts a `multipart/form-data` request with a `video` file field and optional `subject_name` and `order_number` fields. The API validates the file and forwards the same multipart payload to `N8N_WEBHOOK_URL`, so n8n receives a binary field named `video`.
+Video submissions use Cloudflare R2 direct upload to avoid request body limits on Render/Vercel:
 
-For 100MB uploads, deploy the upload backend to Cloud Run. Vercel Functions cannot receive large video request bodies.
+1. The frontend calls `POST /api/r2-presign-upload` on the upload backend.
+2. The browser uploads the video directly to R2 with the returned signed `uploadUrl`.
+3. The frontend sends the evaluation payload to `N8N_WEBHOOK_URL` with `video.downloadUrl`.
+
+n8n should download the video from `payload[0].video.downloadUrl` instead of expecting a multipart binary field.
 
 Local Cloud Run-compatible backend:
 
@@ -75,6 +85,19 @@ Set the frontend upload target when using Cloud Run:
 
 ```env
 VITE_UPLOAD_VIDEO_API_URL=https://YOUR_CLOUD_RUN_URL/api/upload-video
+```
+
+Cloudflare R2 bucket CORS must allow the frontend origin to `PUT` objects. Example:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:5173", "https://YOUR_FRONTEND_DOMAIN"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedHeaders": ["content-type"],
+    "MaxAgeSeconds": 3600
+  }
+]
 ```
 
 Build the Cloud Run container with:

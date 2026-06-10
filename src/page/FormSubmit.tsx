@@ -30,11 +30,32 @@ type N8nEvaluationPayload = {
   suggestions: string[];
   overallSuggestionRaw: string;
   hasVideo: boolean;
+  video?: R2UploadedVideo;
 };
 
 type SubmissionProgress = {
   percent: number;
   label: string;
+};
+
+type R2PresignResponse = {
+  provider: "cloudflare-r2";
+  bucket: string;
+  objectKey: string;
+  uploadUrl: string;
+  downloadUrl: string;
+  uploadExpiresIn: number;
+  downloadExpiresIn: number;
+};
+
+type R2UploadedVideo = {
+  provider: "cloudflare-r2";
+  bucket: string;
+  objectKey: string;
+  downloadUrl: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
 };
 
 const N8N_RUBRIC_SECTIONS: Record<string, { key: string; name: string }> = {
@@ -67,6 +88,13 @@ function validateVideoFile(file: File | null) {
 function normalizeScore(value: unknown): number {
   const n = Math.round(Number(value || 0));
   return n >= 1 && n <= 5 ? n : 0;
+}
+
+function getR2PresignUrl() {
+  const uploadUrl = new URL(VIDEO_UPLOAD_API_URL, window.location.origin);
+  uploadUrl.pathname = "/api/r2-presign-upload";
+  uploadUrl.search = "";
+  return uploadUrl.toString();
 }
 
 function createSubmissionId() {
@@ -311,6 +339,7 @@ function FormSubmit() {
     payload: EvaluationPayload,
     evaluationId: number,
     hasVideo: boolean,
+    video?: R2UploadedVideo,
   ): N8nEvaluationPayload[] => {
     const overallSuggestionRaw = payload.overall_suggestion?.trim() || "";
 
@@ -335,6 +364,7 @@ function FormSubmit() {
         suggestions: overallSuggestionRaw ? [overallSuggestionRaw] : [],
         overallSuggestionRaw,
         hasVideo,
+        video,
       },
     ];
   };
@@ -356,25 +386,86 @@ function FormSubmit() {
     }
   };
 
-  const readTextResponse = (status: number, responseText: string) => {
-    if (status < 200 || status >= 300) {
-      throw new Error(`Webhook failed: ${status} ${responseText}`);
-    }
+  const createR2Presign = async (
+    videoFile: File,
+    evaluationId: number,
+  ): Promise<R2PresignResponse> => {
+    const response = await fetch(getR2PresignUrl(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fileName: videoFile.name,
+        mimeType: videoFile.type || "application/octet-stream",
+        fileSize: videoFile.size,
+        userId: authUserId,
+        evaluationId,
+      }),
+    });
 
-    if (!responseText) {
-      return null;
+    const responseText = await response.text().catch(() => "");
+    if (!response.ok) {
+      throw new Error(`Upload URL request failed: ${response.status} ${responseText}`);
     }
 
     try {
-      return JSON.parse(responseText);
+      return JSON.parse(responseText) as R2PresignResponse;
     } catch {
-      return responseText;
+      throw new Error("Upload URL request returned an invalid response.");
     }
+  };
+
+  const uploadVideoToR2 = async (
+    videoFile: File,
+    evaluationId: number,
+    onUploadProgress?: (percent: number) => void,
+  ): Promise<R2UploadedVideo> => {
+    const presign = await createR2Presign(videoFile, evaluationId);
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.open("PUT", presign.uploadUrl);
+      xhr.setRequestHeader("Content-Type", videoFile.type || "application/octet-stream");
+
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) {
+          return;
+        }
+
+        onUploadProgress?.(Math.round((event.loaded / event.total) * 100));
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+          return;
+        }
+
+        reject(new Error(`R2 upload failed: ${xhr.status} ${xhr.responseText}`));
+      };
+
+      xhr.onerror = () => reject(new Error(t("form.submitFailed")));
+      xhr.onabort = () => reject(new Error(t("form.submitFailed")));
+      xhr.send(videoFile);
+    });
+
+    return {
+      provider: presign.provider,
+      bucket: presign.bucket,
+      objectKey: presign.objectKey,
+      downloadUrl: presign.downloadUrl,
+      fileName: videoFile.name,
+      mimeType: videoFile.type || "application/octet-stream",
+      fileSize: videoFile.size,
+    };
   };
 
   const sendEvaluationToN8n = async (
     webhookPayload: N8nEvaluationPayload[],
     videoFile?: File | null,
+    evaluationId?: number,
     onUploadProgress?: (percent: number) => void,
   ) => {
     if (!videoFile) {
@@ -389,35 +480,26 @@ function FormSubmit() {
       return readWebhookResponse(response);
     }
 
-    const formData = new FormData();
-    formData.append("payload", JSON.stringify(webhookPayload));
-    formData.append("video", videoFile);
+    if (!evaluationId) {
+      throw new Error("evaluationId is required for video upload.");
+    }
 
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
+    const uploadedVideo = await uploadVideoToR2(videoFile, evaluationId, onUploadProgress);
+    const payloadWithVideo = webhookPayload.map((item) => ({
+      ...item,
+      hasVideo: true,
+      video: uploadedVideo,
+    }));
 
-      xhr.open("POST", VIDEO_UPLOAD_API_URL);
-
-      xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) {
-          return;
-        }
-
-        onUploadProgress?.(Math.round((event.loaded / event.total) * 100));
-      };
-
-      xhr.onload = () => {
-        try {
-          resolve(readTextResponse(xhr.status, xhr.responseText));
-        } catch (error) {
-          reject(error);
-        }
-      };
-
-      xhr.onerror = () => reject(new Error(t("form.submitFailed")));
-      xhr.onabort = () => reject(new Error(t("form.submitFailed")));
-      xhr.send(formData);
+    const response = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payloadWithVideo),
     });
+
+    return readWebhookResponse(response);
   };
 
   const submitForm = async () => {
@@ -466,6 +548,7 @@ function FormSubmit() {
       await sendEvaluationToN8n(
         buildN8nPayload(payload, evaluationId, Boolean(videoFile)),
         videoFile,
+        evaluationId,
         (uploadPercent) => {
           const mappedPercent = 20 + Math.round(uploadPercent * 0.7);
           setSubmissionProgress({

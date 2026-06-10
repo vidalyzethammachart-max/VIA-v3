@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import FormData from "form-data";
 import multer from "multer";
+import { createR2VideoPresign } from "./server/r2Presign.js";
 
 const PORT = Number(process.env.PORT || 8080);
 const MAX_UPLOAD_SIZE_BYTES = 500 * 1024 * 1024;
@@ -62,6 +63,26 @@ const upload = multer({
 
 app.get("/", (_req, res) => {
   res.status(200).send("Upload API running");
+});
+
+app.post("/api/r2-presign-upload", express.json({ limit: "1mb" }), (req, res) => {
+  try {
+    const presign = createR2VideoPresign({
+      fileName: String(req.body?.fileName || ""),
+      mimeType: String(req.body?.mimeType || ""),
+      fileSize: Number(req.body?.fileSize || 0),
+      userId: String(req.body?.userId || ""),
+      evaluationId: req.body?.evaluationId ? String(req.body.evaluationId) : "",
+    });
+
+    res.status(200).json(presign);
+  } catch (error) {
+    console.error("[upload-api] failed to presign R2 upload", error);
+    res.status(400).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to create upload URL.",
+    });
+  }
 });
 
 app.post("/api/upload-video", upload.single("video"), async (req, res) => {

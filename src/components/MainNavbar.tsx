@@ -28,13 +28,20 @@ export default function MainNavbar() {
             <img src={Logo} alt="VIA Logo" className="h-8 w-auto rounded-md" />
           </Link>
 
-          <div className="flex flex-col gap-0.5 leading-none">
+          <div className="min-w-0 flex flex-1 flex-col gap-0.5 leading-none">
+            <span
+              className={`text-xs font-semibold leading-tight ${
+                isDark ? "text-white" : "text-primary"
+              }`}
+            >
+              {t("navbar.brand")}
+            </span>
             <h1
               className={`text-base font-semibold leading-tight ${
                 isDark ? "text-slate-100" : "text-slate-900"
               }`}
             >
-              {t("navbar.brand")}
+              {t("navbar.title")}
             </h1>
             <p
               className={`text-xs leading-tight ${
@@ -45,7 +52,7 @@ export default function MainNavbar() {
             </p>
           </div>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
             <ProfileDropdown />
           </div>
         </div>
