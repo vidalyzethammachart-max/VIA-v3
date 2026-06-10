@@ -14,6 +14,7 @@ import {
   sanitizeFileName,
 } from "./videoUploadCore.js";
 import { analyzeVideoFromUrl } from "./videoAnalysisCore.js";
+import { createR2VideoPresign } from "./r2Presign.js";
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "http://localhost:5173",
@@ -71,6 +72,25 @@ app.options("/api/upload-video", (_req, res) => {
 
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ ok: true });
+});
+
+app.post("/api/r2-presign-upload", express.json({ limit: "1mb" }), (req, res) => {
+  try {
+    const presign = createR2VideoPresign({
+      fileName: String(req.body?.fileName || ""),
+      mimeType: String(req.body?.mimeType || ""),
+      fileSize: Number(req.body?.fileSize || 0),
+      userId: String(req.body?.userId || ""),
+      evaluationId: req.body?.evaluationId ? String(req.body.evaluationId) : "",
+    });
+
+    res.status(200).json(presign);
+  } catch (error) {
+    console.error("[cloud-run-upload] failed to presign R2 upload", error);
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Failed to create upload URL.",
+    });
+  }
 });
 
 async function relayVideoUpload({ file, fields }) {

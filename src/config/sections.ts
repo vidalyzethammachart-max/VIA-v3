@@ -118,7 +118,7 @@ const SECTION_CONTENT: LocalizedSection[] = [
   },
   {
     id: "9",
-    title: "การออกกราฟิก",
+    title: "การออกแบบกราฟิก",
     description: "ประเมินการใช้กราฟิก สี ข้อความ และแอนิเมชันเพื่อสนับสนุนการเรียนรู้",
     questions: [
       { id: "q1", th: "มีการออกแบบกราฟิกได้อย่างสร้างสรรค์การเข้าใจถึงแก่นหลักของเรื่อง", en: "Graphic design is creative and captures the core idea of the topic." },
