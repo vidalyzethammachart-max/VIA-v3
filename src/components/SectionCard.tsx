@@ -1,5 +1,5 @@
 import type { LikertValue, Question, Section } from "../config/sections";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 type Props = {
   section: Section;

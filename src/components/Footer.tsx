@@ -1,5 +1,5 @@
-import { useLanguage } from "../i18n/LanguageProvider";
-import { useTheme } from "../theme/ThemeProvider";
+import { useLanguage } from "../i18n/useLanguage";
+import { useTheme } from "../theme/useTheme";
 
 export default function Footer() {
   const { theme } = useTheme();

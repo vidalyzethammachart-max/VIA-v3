@@ -6,7 +6,7 @@ import { accountingService } from "../services/accountingService";
 import AuthAlert from "../components/AuthAlert";
 import AuthModal from "../components/AuthModal";
 import AuthPageControls from "../components/AuthPageControls";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 import {
   getPasswordUpdateErrorMessage,
   hasRecoveryParams,

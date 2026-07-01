@@ -17,7 +17,7 @@ import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuthRole } from "./hooks/useAuthRole";
 import type { AppRole } from "./lib/roles";
-import { useLanguage } from "./i18n/LanguageProvider";
+import { useLanguage } from "./i18n/useLanguage";
 
 function getDefaultRouteForRole(role: AppRole | null): string {
   if (!role) return "/";

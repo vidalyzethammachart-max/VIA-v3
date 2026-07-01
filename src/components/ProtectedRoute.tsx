@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import type { AppRole } from "../lib/roles";
 import { roleAtLeast } from "../lib/roles";
 import { useAuthRole } from "../hooks/useAuthRole";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 type ProtectedRouteProps = {
   children: ReactNode;

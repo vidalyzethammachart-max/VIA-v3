@@ -5,7 +5,7 @@ import { accountingService } from "../services/accountingService";
 import AuthPageControls from "../components/AuthPageControls";
 import { getUserRole } from "../hooks/useAuthRole";
 import { normalizeRole, roleAtLeast } from "../lib/roles";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 import Logo from "../assets/logo_no_bg.png";
 

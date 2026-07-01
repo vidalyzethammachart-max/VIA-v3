@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 type AuthModalProps = {
   title?: string;

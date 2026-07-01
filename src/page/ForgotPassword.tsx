@@ -5,7 +5,7 @@ import Logo from "../assets/logo_no_bg.png";
 import { accountingService } from "../services/accountingService";
 import AuthAlert from "../components/AuthAlert";
 import AuthPageControls from "../components/AuthPageControls";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 import {
   getPasswordResetRequestErrorMessage,
   RESET_EMAIL_COOLDOWN_MS,

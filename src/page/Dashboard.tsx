@@ -6,7 +6,7 @@ import { accountingService } from "../services/accountingService";
 import MainNavbar from "../components/MainNavbar";
 import { getSections } from "../config/sections";
 import { useAuthRole } from "../hooks/useAuthRole";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 type RubricValue = number | null;
 type RubricData = {

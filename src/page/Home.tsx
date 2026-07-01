@@ -2,17 +2,12 @@ import { Link } from "react-router-dom";
 
 import Logo from "../assets/logo_no_bg.png";
 import MainNavbar from "../components/MainNavbar";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 type HomeAction = {
   href: string;
   title: string;
   variant: "primary" | "secondary";
-};
-
-type HomeFeature = {
-  title: string;
-  description: string;
 };
 
 const ACTIONS: HomeAction[] = [
@@ -28,20 +23,8 @@ const ACTIONS: HomeAction[] = [
   },
 ];
 
-const FEATURE_KEYS = [
-  "standardRubric",
-  "aiAnalysis",
-  "autoReport",
-  "resultStorage",
-] as const;
-
 export default function Home() {
   const { t } = useLanguage();
-
-  const features: HomeFeature[] = FEATURE_KEYS.map((key) => ({
-    title: t(`home.features.${key}.title`),
-    description: t(`home.features.${key}.description`),
-  }));
 
   return (
     <div className="min-h-screen bg-white">

@@ -5,15 +5,18 @@ import ConfirmModal from "../components/ConfirmModal";
 import MainNavbar from "../components/MainNavbar";
 import { SectionCard } from "../components/SectionCard";
 import { getLikertLabels, getSections, type LikertValue } from "../config/sections";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 import { normalizeRole, type AppRole } from "../lib/roles";
 import { supabase } from "../lib/supabaseClient";
 import { roleRequestService } from "../services/roleRequestService";
 import type { EvaluationPayload, Rubric } from "../services/evaluationService";
 
 const MAX_VIDEO_SIZE_BYTES = 1024 * 1024 * 1024;
+const MAX_LEGACY_VIDEO_SIZE_BYTES = 500 * 1024 * 1024;
 const WEBHOOK_URL = "/api/n8n-webhook";
 const VIDEO_UPLOAD_API_URL = import.meta.env.VITE_UPLOAD_VIDEO_API_URL;
+const VIDEO_UPLOAD_MODE = (import.meta.env.VITE_VIDEO_UPLOAD_MODE || "r2").toLowerCase();
+const IS_LEGACY_UPLOAD_MODE = VIDEO_UPLOAD_MODE === "legacy";
 
 type N8nRubricItem = {
   key: string;
@@ -81,7 +84,12 @@ function validateVideoFile(file: File | null) {
   const fileName = file.name.toLowerCase();
   const isSupportedVideo = fileName.endsWith(".mp4") || fileName.endsWith(".m4v");
   if (!isSupportedVideo) return "รองรับเฉพาะไฟล์ MP4 หรือ M4V";
-  if (file.size > MAX_VIDEO_SIZE_BYTES) return "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 1GB";
+  const maxVideoSize = IS_LEGACY_UPLOAD_MODE ? MAX_LEGACY_VIDEO_SIZE_BYTES : MAX_VIDEO_SIZE_BYTES;
+  if (file.size > maxVideoSize) {
+    return IS_LEGACY_UPLOAD_MODE
+      ? "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 500MB ในโหมด legacy"
+      : "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 1GB";
+  }
   return null;
 }
 
@@ -95,6 +103,47 @@ function getR2PresignUrl() {
   uploadUrl.pathname = "/api/r2-presign-upload";
   uploadUrl.search = "";
   return uploadUrl.toString();
+}
+
+function getLegacyUploadUrl() {
+  const uploadUrl = new URL(VIDEO_UPLOAD_API_URL, window.location.origin);
+  uploadUrl.pathname = "/api/upload-video";
+  uploadUrl.search = "";
+  return uploadUrl.toString();
+}
+
+function readJsonError(responseText: string) {
+  if (!responseText) {
+    return "";
+  }
+
+  try {
+    const payload = JSON.parse(responseText) as {
+      error?: unknown;
+      message?: unknown;
+    };
+    if (typeof payload.error === "string" && payload.error) {
+      return payload.error;
+    }
+    if (typeof payload.message === "string" && payload.message) {
+      return payload.message;
+    }
+  } catch {
+    // Fall back to returning the raw response text below.
+  }
+
+  return responseText;
+}
+
+function assertR2PresignResponse(value: R2PresignResponse) {
+  if (
+    value.provider !== "cloudflare-r2" ||
+    !value.uploadUrl ||
+    !value.downloadUrl ||
+    !value.objectKey
+  ) {
+    throw new Error("R2 upload URL request returned an incomplete response.");
+  }
 }
 
 function createSubmissionId() {
@@ -372,7 +421,10 @@ function FormSubmit() {
   const readWebhookResponse = async (response: Response) => {
     const responseText = await response.text().catch(() => "");
     if (!response.ok) {
-      throw new Error(`Webhook failed: ${response.status} ${responseText}`);
+      const detail = readJsonError(responseText);
+      throw new Error(
+        `n8n JSON webhook failed: ${response.status}${detail ? ` ${detail}` : ""}`,
+      );
     }
 
     if (!responseText) {
@@ -406,13 +458,51 @@ function FormSubmit() {
 
     const responseText = await response.text().catch(() => "");
     if (!response.ok) {
-      throw new Error(`Upload URL request failed: ${response.status} ${responseText}`);
+      const detail = readJsonError(responseText);
+      throw new Error(
+        `R2 upload URL request failed: ${response.status}${detail ? ` ${detail}` : ""}`,
+      );
     }
 
     try {
-      return JSON.parse(responseText) as R2PresignResponse;
+      const presign = JSON.parse(responseText) as R2PresignResponse;
+      assertR2PresignResponse(presign);
+      return presign;
     } catch {
       throw new Error("Upload URL request returned an invalid response.");
+    }
+  };
+
+  const uploadLegacyVideo = async (
+    payload: N8nEvaluationPayload[],
+    videoFile: File,
+    evaluationId: number,
+    onUploadProgress?: (percent: number) => void,
+  ) => {
+    const formData = new FormData();
+    formData.append("payload", JSON.stringify(payload));
+    formData.append("video", videoFile);
+    formData.append("evaluation_id", String(evaluationId));
+
+    const response = await fetch(getLegacyUploadUrl(), {
+      method: "POST",
+      body: formData,
+    });
+
+    const responseText = await response.text().catch(() => "");
+    if (!response.ok) {
+      const detail = readJsonError(responseText);
+      throw new Error(
+        `Legacy video upload failed: ${response.status}${detail ? ` ${detail}` : ""}`,
+      );
+    }
+
+    onUploadProgress?.(100);
+
+    try {
+      return responseText ? JSON.parse(responseText) : null;
+    } catch {
+      return responseText || null;
     }
   };
 
@@ -443,11 +533,11 @@ function FormSubmit() {
           return;
         }
 
-        reject(new Error(`R2 upload failed: ${xhr.status} ${xhr.responseText}`));
+        reject(new Error(`R2 direct upload failed: ${xhr.status} ${xhr.responseText}`));
       };
 
-      xhr.onerror = () => reject(new Error(t("form.submitFailed")));
-      xhr.onabort = () => reject(new Error(t("form.submitFailed")));
+      xhr.onerror = () => reject(new Error("R2 direct upload failed. Check bucket CORS and the signed upload URL."));
+      xhr.onabort = () => reject(new Error("R2 direct upload was cancelled."));
       xhr.send(videoFile);
     });
 
@@ -468,6 +558,14 @@ function FormSubmit() {
     evaluationId?: number,
     onUploadProgress?: (percent: number) => void,
   ) => {
+    if (IS_LEGACY_UPLOAD_MODE && videoFile) {
+      if (!evaluationId) {
+        throw new Error("evaluationId is required for legacy video upload.");
+      }
+
+      return uploadLegacyVideo(webhookPayload, videoFile, evaluationId, onUploadProgress);
+    }
+
     if (!videoFile) {
       const response = await fetch(WEBHOOK_URL, {
         method: "POST",
@@ -550,7 +648,10 @@ function FormSubmit() {
         videoFile,
         evaluationId,
         (uploadPercent) => {
-          const mappedPercent = 20 + Math.round(uploadPercent * 0.7);
+          const mappedPercent = IS_LEGACY_UPLOAD_MODE
+            ? Math.min(uploadPercent, 90)
+            : 20 + Math.round(uploadPercent * 0.7);
+
           setSubmissionProgress({
             percent: Math.min(mappedPercent, 90),
             label: t("form.progressUploading"),
@@ -779,6 +880,11 @@ function FormSubmit() {
               </h2>
               <p className="mt-1 text-xs text-slate-500">
                 {t("form.submissionModeDescription")}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {IS_LEGACY_UPLOAD_MODE
+                  ? "Legacy mode: upload goes through the backend relay."
+                  : "R2 mode: upload goes directly to Cloudflare R2."}
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
