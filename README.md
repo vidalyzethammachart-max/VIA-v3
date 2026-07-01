@@ -55,10 +55,10 @@ Video Intelligence & Analytics web application for evaluation form submission, r
 Create a `.env` file:
 
 ```env
-VITE_N8N_WEBHOOK_URL=YOUR_N8N_WEBHOOK_URL
+VITE_N8N_WEBHOOK_URL=https://vidalyze.app.n8n.cloud/webhook/46e2c881-8415-4eaa-81c5-e5a1642be6ac
 VITE_SUPABASE_URL=YOUR_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-N8N_WEBHOOK_URL=YOUR_N8N_WEBHOOK_URL
+N8N_WEBHOOK_URL=https://vidalyze.app.n8n.cloud/webhook/46e2c881-8415-4eaa-81c5-e5a1642be6ac
 VITE_UPLOAD_VIDEO_API_URL=https://YOUR_UPLOAD_API_URL/api/upload-video
 CORS_ORIGIN=http://localhost:5173,https://YOUR_FRONTEND_DOMAIN
 R2_ACCOUNT_ID=YOUR_CLOUDFLARE_ACCOUNT_ID
@@ -73,7 +73,24 @@ Video submissions use Cloudflare R2 direct upload to avoid request body limits o
 2. The browser uploads the video directly to R2 with the returned signed `uploadUrl`.
 3. The frontend sends the evaluation payload to `N8N_WEBHOOK_URL` with `video.downloadUrl`.
 
-n8n should download the video from `payload[0].video.downloadUrl` instead of expecting a multipart binary field.
+n8n should download the video from `payload[0].video.downloadUrl` instead of expecting a multipart binary field. Do not send large video binaries through `/api/n8n-webhook`; that proxy accepts JSON payloads only.
+
+For uploads larger than 250MB, the upload backend environment must include all R2 variables:
+
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME`
+
+If any of these are missing, the presign step fails before the browser can upload to R2.
+
+To inspect the older multipart relay flow, set:
+
+```env
+VITE_VIDEO_UPLOAD_MODE=legacy
+```
+
+Legacy mode sends the file through `/api/upload-video` on the upload backend and relays it to n8n as multipart form data.
 
 Local Cloud Run-compatible backend:
 

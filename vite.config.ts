@@ -1,7 +1,8 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const DEFAULT_N8N_WEBHOOK_URL = "https://vidalyze.app.n8n.cloud/webhook/google-form-hook"
+const DEFAULT_N8N_WEBHOOK_URL =
+  "https://vidalyze.app.n8n.cloud/webhook/46e2c881-8415-4eaa-81c5-e5a1642be6ac"
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), ["N8N_WEBHOOK_URL"])
