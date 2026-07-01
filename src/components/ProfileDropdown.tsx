@@ -5,8 +5,8 @@ import { normalizeRole, roleAtLeast } from "../lib/roles";
 import { accountingService } from "../services/accountingService";
 import { supabase } from "../lib/supabaseClient";
 import { useAuthRole } from "../hooks/useAuthRole";
-import { useTheme } from "../theme/ThemeProvider";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useTheme } from "../theme/useTheme";
+import { useLanguage } from "../i18n/useLanguage";
 
 function MenuIcon({ children }: { children: React.ReactNode }) {
   return <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">{children}</span>;

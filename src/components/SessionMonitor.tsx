@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
 const WARNING_TIME = 5 * 60 * 1000;
@@ -14,7 +14,6 @@ export default function SessionMonitor() {
   useEffect(() => {
     let timeoutId: number;
     let warningId: number;
-    let checkInterval: number;
 
     const handleLogout = async () => {
       await supabase.auth.signOut();
@@ -43,7 +42,7 @@ export default function SessionMonitor() {
 
     void startSessionTimer();
 
-    checkInterval = window.setInterval(() => {
+    const checkInterval = window.setInterval(() => {
       supabase.auth.getSession().then(({ data }) => {
         if (!data.session) {
           navigate("/", { replace: true });

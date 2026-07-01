@@ -179,9 +179,9 @@ export function AuthRoleProvider({ children }: { children: ReactNode }) {
 export function useAuthRole(): AuthRoleState {
   const state = useContext(AuthRoleContext);
 
-  if (state) {
-    return state;
+  if (!state) {
+    throw new Error("useAuthRole must be used within AuthRoleProvider");
   }
 
-  return useAuthRoleState();
+  return state;
 }

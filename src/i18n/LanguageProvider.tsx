@@ -1,6 +1,4 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -8,17 +6,9 @@ import {
 } from "react";
 
 import { translations, type Locale } from "./translations";
-
-type LanguageContextValue = {
-  language: Locale;
-  setLanguage: (language: Locale) => void;
-  toggleLanguage: () => void;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-};
+import { LanguageContext, type LanguageContextValue } from "./languageContext";
 
 const STORAGE_KEY = "via-language";
-
-const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 function getInitialLanguage(): Locale {
   if (typeof window === "undefined") {
@@ -67,13 +57,4 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
-}
-
-export function useLanguage() {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within LanguageProvider");
-  }
-
-  return context;
 }

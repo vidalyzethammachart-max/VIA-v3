@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { accountingService } from "../services/accountingService";
 import AuthPageControls from "../components/AuthPageControls";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 
 import Logo from "../assets/logo_no_bg.png";
 

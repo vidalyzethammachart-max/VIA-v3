@@ -4,7 +4,7 @@ import type { User } from "@supabase/supabase-js";
 
 import profilePic from "../assets/profile.jpg";
 import MainNavbar from "../components/MainNavbar";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 import { supabase } from "../lib/supabaseClient";
 import { accountingService } from "../services/accountingService";
 import { useAuthRole } from "../hooks/useAuthRole";

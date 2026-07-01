@@ -2,8 +2,8 @@ import { Link } from "react-router-dom";
 
 import Logo from "../assets/logo.png";
 import ProfileDropdown from "./ProfileDropdown";
-import { useTheme } from "../theme/ThemeProvider";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useTheme } from "../theme/useTheme";
+import { useLanguage } from "../i18n/useLanguage";
 
 export default function MainNavbar() {
   const { theme } = useTheme();

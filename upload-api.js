@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import FormData from "form-data";
 import multer from "multer";
+import { analyzeVideoFromUrl } from "./server/videoAnalysisCore.js";
 import { createR2VideoPresign } from "./server/r2Presign.js";
 
 const PORT = Number(process.env.PORT || 8080);
@@ -81,6 +82,20 @@ app.post("/api/r2-presign-upload", express.json({ limit: "1mb" }), (req, res) =>
     res.status(400).json({
       success: false,
       message: error instanceof Error ? error.message : "Failed to create upload URL.",
+    });
+  }
+});
+
+app.post("/api/analyze-video", express.json({ limit: "1mb" }), async (req, res) => {
+  try {
+    const { fileName, fileUrl, prompt } = req.body || {};
+    const result = await analyzeVideoFromUrl({ fileName, fileUrl, prompt });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("[upload-api] analysis failed", error);
+    res.status(502).json({
+      error: error instanceof Error ? error.message : "Video analysis failed.",
     });
   }
 });

@@ -70,6 +70,10 @@ app.options("/api/upload-video", (_req, res) => {
   res.status(204).end();
 });
 
+app.options("/api/r2-presign-upload", (_req, res) => {
+  res.status(204).end();
+});
+
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ ok: true });
 });

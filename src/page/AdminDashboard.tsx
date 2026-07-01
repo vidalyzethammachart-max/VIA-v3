@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import MainNavbar from "../components/MainNavbar";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 import { normalizeRole, roleAtLeast, type AppRole } from "../lib/roles";
 import { supabase } from "../lib/supabaseClient";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "../theme/useTheme";
 
 type UserRow = {
   auth_user_id: string;

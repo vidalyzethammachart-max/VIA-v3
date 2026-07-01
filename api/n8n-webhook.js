@@ -1,4 +1,6 @@
-const WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "https://vidalyze.app.n8n.cloud/webhook/google-form-hook";
+const WEBHOOK_URL =
+  process.env.N8N_WEBHOOK_URL ||
+  "https://vidalyze.app.n8n.cloud/webhook/46e2c881-8415-4eaa-81c5-e5a1642be6ac";
 
 function jsonResponse(status, body) {
   return Response.json(body, { status });
@@ -15,31 +17,16 @@ async function forwardJson(request) {
   });
 }
 
-async function forwardMultipart(request) {
-  const sourceFormData = await request.formData();
-  const payload = sourceFormData.get("payload");
-  const video = sourceFormData.get("video");
-
-  const formData = new FormData();
-  if (typeof payload === "string") {
-    formData.append("payload", payload);
-  }
-  if (video instanceof File) {
-    formData.append("video", video, video.name);
-  }
-
-  return fetch(WEBHOOK_URL, {
-    method: "POST",
-    body: formData,
-  });
-}
-
 export async function POST(request) {
   try {
     const contentType = request.headers.get("content-type") || "";
-    const response = contentType.includes("multipart/form-data")
-      ? await forwardMultipart(request)
-      : await forwardJson(request);
+    if (contentType.includes("multipart/form-data")) {
+      return jsonResponse(415, {
+        error: "Video files must be uploaded directly to R2 before calling this webhook proxy.",
+      });
+    }
+
+    const response = await forwardJson(request);
 
     const responseText = await response.text();
     return new Response(responseText, {

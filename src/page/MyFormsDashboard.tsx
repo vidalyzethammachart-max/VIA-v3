@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import ConfirmModal from "../components/ConfirmModal";
 import MainNavbar from "../components/MainNavbar";
-import { useLanguage } from "../i18n/LanguageProvider";
+import { useLanguage } from "../i18n/useLanguage";
 import { supabase } from "../lib/supabaseClient";
 
 const DOCUMENTS_BUCKET = "evaluation-documents";
