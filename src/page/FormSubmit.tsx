@@ -12,7 +12,8 @@ import { roleRequestService } from "../services/roleRequestService";
 import type { EvaluationPayload, Rubric } from "../services/evaluationService";
 
 const MAX_VIDEO_SIZE_BYTES = 1024 * 1024 * 1024;
-const MAX_LEGACY_VIDEO_SIZE_BYTES = 500 * 1024 * 1024;
+const MAX_LEGACY_VIDEO_SIZE_BYTES = 200 * 1024 * 1024;
+const LEGACY_VIDEO_LIMIT_TEXT = "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 200MB";
 const WEBHOOK_URL = "/api/n8n-webhook";
 const VIDEO_UPLOAD_API_URL = import.meta.env.VITE_UPLOAD_VIDEO_API_URL;
 const VIDEO_UPLOAD_MODE = (import.meta.env.VITE_VIDEO_UPLOAD_MODE || "r2").toLowerCase();
@@ -87,7 +88,7 @@ function validateVideoFile(file: File | null) {
   const maxVideoSize = IS_LEGACY_UPLOAD_MODE ? MAX_LEGACY_VIDEO_SIZE_BYTES : MAX_VIDEO_SIZE_BYTES;
   if (file.size > maxVideoSize) {
     return IS_LEGACY_UPLOAD_MODE
-      ? "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 500MB ในโหมด legacy"
+      ? LEGACY_VIDEO_LIMIT_TEXT
       : "ไฟล์วิดีโอต้องมีขนาดไม่เกิน 1GB";
   }
   return null;
@@ -309,10 +310,11 @@ function FormSubmit() {
   const isOrderNumberInvalid = showValidation && !orderNumber.trim();
   const isSubjectNameInvalid = showValidation && !subjectName.trim();
   const isCommentInvalid = showValidation && !comment.trim();
+  const videoValidationMessage = validateVideoFile(selectedVideoFile);
   const isVideoInvalid =
-    showValidation &&
     submissionMode === "with_video" &&
-    Boolean(validateVideoFile(selectedVideoFile));
+    Boolean(selectedVideoFile) &&
+    Boolean(videoValidationMessage);
 
   useEffect(() => {
     if (!showValidation) {
@@ -951,6 +953,9 @@ function FormSubmit() {
               <p className="mt-1 text-xs text-slate-500">
                 {t("form.videoUploadDescription")}
               </p>
+              <p className="mt-1 text-xs font-medium text-red-600">
+                {LEGACY_VIDEO_LIMIT_TEXT}
+              </p>
             </div>
             <input
               ref={videoInputRef}
@@ -972,7 +977,7 @@ function FormSubmit() {
             )}
             {isVideoInvalid && (
               <p className="text-xs font-medium text-red-600">
-                {validateVideoFile(selectedVideoFile)}
+                {videoValidationMessage}
               </p>
             )}
             </section>
